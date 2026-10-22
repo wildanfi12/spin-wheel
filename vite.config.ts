@@ -1,0 +1,28 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
+export default defineConfig({
+  base: "/spin-wheel/",
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: "prompt",
+      includeAssets: ["assets/*.png"],
+      manifest: {
+        name: "HOWELL SPIN & WIN",
+        short_name: "HOWELL",
+        theme_color: "#FFD600",
+        background_color: "#111111",
+        display: "standalone",
+        start_url: "/spin-wheel/",
+        icons: [{ src: "assets/icon.png", sizes: "any", type: "image/png" }],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,png,webmanifest}"],
+        maximumFileSizeToCacheInBytes: 4000000,
+      },
+    }),
+  ],
+});
