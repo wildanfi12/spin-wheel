@@ -35,14 +35,28 @@ export const rotationFor = (index: number, count: number, from = 0) =>
   ((((360 - (index * 360) / count - (from % 360)) % 360) + 360) % 360);
 export const pointerIndex = (rotation: number, count: number) =>
   Math.round(((360 - (rotation % 360)) % 360) / (360 / count)) % count;
-export function reserve(s: State, random: number): Spin {
+export function nearestAvailableIndex(s: State, desired: number) {
+  const eligible = new Set(available(s));
+  if (!eligible.size) throw Error("Semua hadiah habis. Hubungi petugas.");
+  const count = s.segments.length;
+  for (let distance = 0; distance < count; distance++) {
+    const clockwise = (desired + distance) % count;
+    if (eligible.has(s.segments[clockwise])) return clockwise;
+    const counterClockwise = (desired - distance + count) % count;
+    if (eligible.has(s.segments[counterClockwise])) return counterClockwise;
+  }
+  throw Error("Segmen hadiah tidak tersedia.");
+}
+function reserveIndex(s: State, index: number): Spin {
   if (s.session.spinId)
     throw Error(
       "Sesi ini sudah diputar. Selesaikan hasil sebelumnya untuk melanjutkan.",
     );
-  const { segments, index } = select(s, random);
+  const segments = s.segments;
+  if (!Number.isSafeInteger(index) || index < 0 || index >= segments.length)
+    throw Error("Segmen hadiah tidak valid.");
   const p = s.prizes.find((p) => p.id === segments[index])!;
-  if (p.stock <= 0) throw Error("Stok habis.");
+  if (!p?.enabled || p.stock <= 0) throw Error("Hadiah pada segmen ini habis.");
   p.stock--;
   const at = new Date().toISOString();
   const next =
@@ -71,6 +85,12 @@ export function reserve(s: State, random: number): Spin {
   s.spins.push(r);
   s.session.spinId = r.id;
   return r;
+}
+export function reserve(s: State, random: number): Spin {
+  return reserveIndex(s, select(s, random).index);
+}
+export function reserveAt(s: State, index: number): Spin {
+  return reserveIndex(s, index);
 }
 export function transition(
   s: State,

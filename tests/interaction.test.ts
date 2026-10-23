@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect } from "vitest";
-import { chargeAt, canRelease, powerDuration, powerRotationFor, spinEase } from "../src/interaction";
+import { chargeAt, canRelease, powerDuration, powerSpin, spinEase } from "../src/interaction";
 import { initial } from "../src/model";
 import { select, pointerIndex, rotationFor } from "../src/engine";
 describe("charge safety and fixed wheel", () => {
@@ -35,10 +35,20 @@ describe("charge safety and fixed wheel", () => {
   });
   it("maps every hold percentage to an increasingly stronger precise spin", () => {
     const powers = [0.05, 0.1, 0.25, 0.5, 0.75, 1];
-    const rotations = powers.map((p) => powerRotationFor(3, 10, 120, p));
+    const outcomes = powers.map((p) => powerSpin(0, p, 10));
+    const rotations = outcomes.map((outcome) => outcome.rotation);
     expect(rotations.every((v, i) => i === 0 || v > rotations[i - 1])).toBe(true);
     expect(powerDuration(0.05)).toBeLessThan(powerDuration(1));
-    expect(pointerIndex(rotations[0], 10)).toBe(3);
-    expect(pointerIndex(rotations[5], 10)).toBe(3);
+    outcomes.forEach((outcome) =>
+      expect(pointerIndex(outcome.rotation, 10)).toBe(outcome.index),
+    );
+    expect(rotations[0]).toBeGreaterThanOrEqual(72);
+    expect(rotations[0]).toBeLessThanOrEqual(108);
+    expect(rotations.at(-1)).toBe(1800);
+  });
+  it("derives 20 percent charge from 300ms and clamps long holds", () => {
+    expect(chargeAt(300)).toBeCloseTo(0.2, 5);
+    expect(chargeAt(0)).toBe(0);
+    expect(chargeAt(3000)).toBe(1);
   });
 });

@@ -11,10 +11,10 @@ import {
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
-import { available, reserve, transition } from "./engine";
+import { available, nearestAvailableIndex, reserveAt, transition } from "./engine";
 import { read, mutate } from "./storage";
 import { tone, fanfare, chargingAudio } from "./audio";
-import { chargeAt, canRelease, powerDuration, powerRotationFor, spinEase, type Phase } from "./interaction";
+import { chargeAt, canRelease, powerDuration, powerRotationFor, powerSpin, spinEase, type Phase } from "./interaction";
 import type { State, Spin } from "./model";
 const date = (at: string) =>
   new Intl.DateTimeFormat("id-ID", {
@@ -26,6 +26,7 @@ export default function App() {
   const [state, setState] = useState<State>();
   const [phase, setPhase] = useState<Phase>("IDLE");
   const [progress, setProgress] = useState(0);
+  const [releasedPower, setReleasedPower] = useState(0);
   const [sound, setSound] = useState(false);
   const [history, setHistory] = useState(false);
   const [error, setError] = useState("");
@@ -38,7 +39,8 @@ export default function App() {
     frame = useRef(0),
     angle = useRef(0),
     held = useRef<string | number | null>(null),
-    start = useRef(0);
+    start = useRef(0),
+    progressRef = useRef(0);
   const audio = useRef<ReturnType<typeof chargingAudio> | null>(null);
   const change = (next: Phase) => {
     phaseRef.current = next;
@@ -50,6 +52,7 @@ export default function App() {
     held.current = null;
     audio.current?.stop();
     audio.current = null;
+    progressRef.current = 0;
     setProgress(0);
     change("IDLE");
   };
@@ -101,11 +104,15 @@ export default function App() {
       return;
     held.current = source;
     start.current = performance.now();
+    progressRef.current = 0;
+    setProgress(0);
+    setReleasedPower(0);
     change("CHARGING");
     setError("");
     audio.current = chargingAudio(sound ? state.settings.volume : 0);
     const update = (now: number) => {
       const p = chargeAt(now - start.current);
+      progressRef.current = p;
       setProgress(p);
       audio.current?.update(p);
       if (p === 1) {
@@ -118,7 +125,11 @@ export default function App() {
   function release(source: string | number) {
     if (held.current !== source) return;
     held.current = null;
-    const power = progress;
+    cancelAnimationFrame(frame.current);
+    const power = chargeAt(performance.now() - start.current);
+    progressRef.current = power;
+    setProgress(power);
+    setReleasedPower(power);
     if (canRelease(phaseRef.current) && power > 0) {
       audio.current?.stop();
       audio.current = null;
@@ -132,12 +143,11 @@ export default function App() {
       let selected!: Spin;
       const previous = angle.current;
       const saved = await mutate((s) => {
-        selected = reserve(
-          s,
-          crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296,
-        );
+        const outcome = powerSpin(previous, power, s.segments.length);
+        const segment = nearestAvailableIndex(s, outcome.index);
+        selected = reserveAt(s, segment);
         selected.rotation = powerRotationFor(
-          selected.segment,
+          segment,
           selected.segments.length,
           previous,
           power,
@@ -208,7 +218,9 @@ export default function App() {
       frame.current = requestAnimationFrame(animate);
     } catch (e) {
       setError(String(e));
+      progressRef.current = 0;
       setProgress(0);
+      setReleasedPower(0);
       change("IDLE");
     }
   }
@@ -225,7 +237,9 @@ export default function App() {
         }),
       );
       setResult(undefined);
+      progressRef.current = 0;
       setProgress(0);
+      setReleasedPower(0);
       setError("");
       angle.current = 0;
       change("IDLE");
@@ -256,11 +270,12 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
+  const displayedPower = busy ? releasedPower : progress;
   const spins = [...(state?.spins || [])].reverse();
   return (
     <div
       className={`app phase-${phase.toLowerCase()}`}
-      style={{ "--energy": progress } as React.CSSProperties}
+      style={{ "--energy": displayedPower } as React.CSSProperties}
     >
       <header>
         <img
@@ -331,7 +346,7 @@ export default function App() {
                 prizes={state.prizes}
                 rotation={angle.current}
                 logo={state.settings.logo}
-                progress={progress}
+                progress={displayedPower}
                 phase={phase}
                 winner={
                   ["SETTLING", "WINNING", "RESULT"].includes(phase)
@@ -346,12 +361,12 @@ export default function App() {
           <aside className="telemetry">
             <div className="eyebrow">ENERGY LEVEL</div>
             <div className="energy-number">
-              {Math.round(progress * 100)}
+              {Math.round(displayedPower * 100)}
               <small>%</small>
             </div>
             <div className="energy-bars">
               {Array.from({ length: 20 }, (_, i) => (
-                <i key={i} className={progress * 20 > i ? "active" : ""} />
+                <i key={i} className={displayedPower * 20 > i ? "active" : ""} />
               ))}
             </div>
           </aside>
@@ -406,8 +421,8 @@ export default function App() {
               className="button-fill"
               style={{ transform: `scaleX(${progress})` }}
             />
-            <Zap size={23} />
-            <span>
+            <span className="button-icon"><Zap size={23} /></span>
+            <span className="button-label">
               {phase === "READY"
                 ? easy
                   ? "TAP TO SPIN"

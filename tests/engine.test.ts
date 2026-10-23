@@ -4,10 +4,12 @@ import { initial, validate } from "../src/model";
 import {
   select,
   reserve,
+  reserveAt,
   transition,
   rotationFor,
   pointerIndex,
   available,
+  nearestAvailableIndex,
 } from "../src/engine";
 import { mutate, restore, read } from "../src/storage";
 describe("probability and geometry", () => {
@@ -50,6 +52,13 @@ describe("probability and geometry", () => {
     expect(available(s)).not.toContain("discount");
     s.prizes.forEach((p) => (p.stock = 0));
     expect(() => select(s, 0.5)).toThrow();
+  });
+  it("selects the closest available physical segment when stock is empty", () => {
+    const s = initial();
+    s.prizes.find((prize) => prize.id === s.segments[0])!.stock = 0;
+    const index = nearestAvailableIndex(s, 0);
+    expect(index).not.toBe(0);
+    expect(available(s)).toContain(s.segments[index]);
   });
   it("validates stock, weights, segment IDs and import schema", () => {
     for (const weight of [0, -1, NaN, Infinity]) {
@@ -114,5 +123,17 @@ describe("inventory and session state machine", () => {
     const bad = structuredClone(before);
     bad.spins.push(bad.spins[0]);
     expect(() => validate(bad)).toThrow();
+  });
+  it("completes ten consecutive sessions with one history row each", () => {
+    const s = initial();
+    for (let i = 0; i < 10; i++) {
+      const r = reserveAt(s, i % s.segments.length);
+      transition(s, r.id, "Pending Claim");
+      s.session = { id: crypto.randomUUID() };
+    }
+    expect(s.spins).toHaveLength(10);
+    expect(new Set(s.spins.map((spin) => spin.id)).size).toBe(10);
+    expect(s.session.spinId).toBeUndefined();
+    expect(() => validate(s)).not.toThrow();
   });
 });
