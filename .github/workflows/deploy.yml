@@ -27,6 +27,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+      - name: Add stable asset names for Pages CDN
+        run: |
+          cp dist/assets/index-*.js dist/assets/app.js
+          cp dist/assets/index-*.css dist/assets/app.css
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
