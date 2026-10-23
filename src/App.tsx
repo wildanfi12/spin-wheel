@@ -11,10 +11,10 @@ import {
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
-import { available, reserve, rotationFor, transition } from "./engine";
+import { available, reserve, transition } from "./engine";
 import { read, mutate } from "./storage";
 import { tone, fanfare, chargingAudio } from "./audio";
-import { chargeAt, canRelease, spinEase, type Phase } from "./interaction";
+import { chargeAt, canRelease, powerDuration, powerRotationFor, spinEase, type Phase } from "./interaction";
 import type { State, Spin } from "./model";
 const date = (at: string) =>
   new Intl.DateTimeFormat("id-ID", {
@@ -118,14 +118,15 @@ export default function App() {
   function release(source: string | number) {
     if (held.current !== source) return;
     held.current = null;
-    if (canRelease(phaseRef.current)) {
+    const power = progress;
+    if (canRelease(phaseRef.current) && power > 0) {
       audio.current?.stop();
       audio.current = null;
-      void spin();
+      void spin(power);
     } else cancel();
   }
-  async function spin() {
-    if (phaseRef.current !== "READY" || !state) return;
+  async function spin(power: number) {
+    if (!canRelease(phaseRef.current) || !state) return;
     change("SPINNING");
     try {
       let selected!: Spin;
@@ -135,16 +136,17 @@ export default function App() {
           s,
           crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296,
         );
-        selected.rotation = rotationFor(
+        selected.rotation = powerRotationFor(
           selected.segment,
           selected.segments.length,
           previous,
+          power,
         );
       });
       setState(saved);
       setResult(selected);
       const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const duration = reduced ? 300 : 6500;
+      const duration = reduced ? 300 : powerDuration(power);
       let started = 0,
         lastTick = Math.floor((previous + 18) / 36);
       const animate = (now: number) => {
@@ -314,28 +316,7 @@ export default function App() {
         </div>
       )}
       <main>
-        <div className="event">
-          <i /> INDOCOMTECH 2026 <span> / </span> INTERACTIVE BOOTH EXPERIENCE
-        </div>
         <section className="arena">
-          <aside className="intro">
-            <div className="eyebrow">POWER YOUR LUCK</div>
-            <h2>
-              Energi kamu.
-              <br />
-              Kejutan <em>HOWELL.</em>
-            </h2>
-            <p>
-              Tahan. Rasakan energinya.
-              <br />
-              Lepaskan untuk hadiahmu.
-            </p>
-            <div className="technical">
-              <span>01 / CHARGE</span>
-              <span>02 / RELEASE</span>
-              <span>03 / CELEBRATE</span>
-            </div>
-          </aside>
           <div className="machine">
             {state ? (
               <Wheel
@@ -355,10 +336,6 @@ export default function App() {
             ) : (
               <p>Menyiapkan mesin…</p>
             )}
-            <div className="machine-label">
-              <span>KINETIC ENERGY WHEEL</span>
-              <span>HW / 026</span>
-            </div>
           </div>
           <aside className="telemetry">
             <div className="eyebrow">ENERGY LEVEL</div>
@@ -370,18 +347,6 @@ export default function App() {
               {Array.from({ length: 20 }, (_, i) => (
                 <i key={i} className={progress * 20 > i ? "active" : ""} />
               ))}
-            </div>
-            <p>
-              {phase === "READY"
-                ? "FULL POWER · RELEASE"
-                : busy
-                  ? "KINETIC SYSTEM ACTIVE"
-                  : "HOLD TO ACTIVATE"}
-            </p>
-            <div className="system">
-              <i /> SYSTEM READY
-              <br />
-              <small>10 SEGMEN · 5 JENIS HADIAH</small>
             </div>
           </aside>
         </section>
@@ -452,11 +417,6 @@ export default function App() {
             </span>
           </button>
           <div className="control-bottom">
-            <span>
-              {phase === "READY"
-                ? "Energi penuh. Lepaskan dan lihat keberuntunganmu."
-                : "Lepas sebelum penuh? Coba lagi."}
-            </span>
             <label>
               <input
                 type="checkbox"

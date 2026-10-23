@@ -111,13 +111,13 @@ export const Wheel = forwardRef<
               <path
                 className={winner === i ? "winning-segment" : ""}
                 d={`M300 300 L${300 + 264 * Math.cos(a)} ${300 + 264 * Math.sin(a)} A264 264 0 ${angle > 180 ? 1 : 0} 1 ${300 + 264 * Math.cos(b)} ${300 + 264 * Math.sin(b)} Z`}
-                fill={yellow ? "#FFD600" : "#202020"}
-                stroke="#74651f"
+                fill={yellow ? "#FFD600" : "#FFFFFF"}
+                stroke="#9f8b2e"
                 strokeWidth="1"
               />
               <g
                 transform={`rotate(${i * angle} 300 300)`}
-                fill={yellow ? "#131313" : "#fff"}
+                fill="#141414"
               >
                 <text
                   x="300"
@@ -142,7 +142,7 @@ export const Wheel = forwardRef<
                   />
                 ) : (
                   <foreignObject x="281" y="151" width="38" height="38">
-                    <div style={{ color: yellow ? "#131313" : "#FFD600" }}>
+                    <div style={{ color: "#141414", filter: "drop-shadow(0 1px 0 #ffffff)" }}>
                       <PrizeIcon icon={p.icon} size={38} />
                     </div>
                   </foreignObject>

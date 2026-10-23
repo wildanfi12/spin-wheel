@@ -867,3 +867,4 @@ dialog::backdrop {
 .phase-spinning .energy-ring {
   animation: ready 0.45s ease-out;
 }
+.arena{grid-template-columns:minmax(340px,680px) minmax(180px,1fr);justify-content:center;gap:clamp(28px,5vw,90px);max-width:980px;margin:0 auto}.event,.intro,.technical,.machine-label,.system{display:none}.wheel-disc text{fill:#141414}.wheel-disc foreignObject{color:#141414}@media(max-width:760px){.arena{display:block;max-width:none}.telemetry{display:block;max-width:180px;margin:12px auto;text-align:center}.energy-number{font-size:54px}.energy-bars{justify-content:center}.telemetry p{display:none}}
