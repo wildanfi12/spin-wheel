@@ -5,6 +5,16 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig({
   base: "/spin-wheel/",
   plugins: [
+    {
+      name: "pages-source-entry",
+      transformIndexHtml: {
+        order: "pre",
+        handler: (html) => html
+          .replace(/<link data-pages-fallback[^>]*>/g, "")
+          .replace(/<script data-pages-fallback>[\s\S]*?<\/script>/g,
+            '<script type="module" src="/src/main.tsx"></script>'),
+      },
+    },
     react(),
     tailwindcss(),
     VitePWA({
