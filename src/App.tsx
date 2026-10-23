@@ -214,6 +214,10 @@ export default function App() {
   }
   async function finish() {
     try {
+      cancelAnimationFrame(frame.current);
+      held.current = null;
+      audio.current?.stop();
+      audio.current = null;
       setState(
         await mutate((s) => {
           if (s.session.spinId === result?.id)
@@ -222,6 +226,8 @@ export default function App() {
       );
       setResult(undefined);
       setProgress(0);
+      setError("");
+      angle.current = 0;
       change("IDLE");
     } catch (e) {
       setError(String(e));
