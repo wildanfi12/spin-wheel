@@ -83,11 +83,12 @@ for (const viewport of [
   await page.setViewportSize(viewport);
   const layout = await page.evaluate(() => {
     const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
-    const title = rect(".title"), wheel = rect(".wheel-shell"), button = rect(".charge-button");
+    const title = rect(".title"), wheel = rect(".wheel-shell"), button = rect(".charge-button"), telemetry = rect(".telemetry");
     const matrix = new DOMMatrix(getComputedStyle(document.querySelector(".charge-button")).transform);
     return {
       titleLeft: title.left,
       titleAlign: getComputedStyle(document.querySelector(".title")).textAlign,
+      telemetryLeft: telemetry.left,
       wheelCenter: wheel.left + wheel.width / 2,
       buttonCenter: button.left + button.width / 2,
       tilt: Math.abs(matrix.b) + Math.abs(matrix.c),
@@ -95,7 +96,9 @@ for (const viewport of [
     };
   });
   assert.equal(layout.titleAlign, "left");
-  assert.ok(layout.titleLeft >= 0 && layout.titleLeft < viewport.width / 2);
+  assert.ok(layout.titleLeft >= 0);
+  if (viewport.width > 1200)
+    assert.ok(Math.abs(layout.titleLeft - layout.telemetryLeft) <= 1.5);
   assert.ok(Math.abs(layout.wheelCenter - layout.buttonCenter) <= 1.5);
   assert.ok(layout.tilt < 0.001);
   assert.ok(layout.overflow <= 0);

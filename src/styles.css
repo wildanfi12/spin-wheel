@@ -48,10 +48,16 @@ button svg {
 header {
   min-height: 104px;
   border-bottom: 1px solid #292929;
+  position: relative;
+}
+.header-layout {
+  width: min(100%, 980px);
+  min-height: 104px;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(340px, 680px) minmax(180px, 220px);
   align-items: center;
-  gap: 24px;
+  column-gap: clamp(28px, 5vw, 90px);
 }
 .brand {
   width: 150px;
@@ -69,7 +75,7 @@ header {
   letter-spacing: -0.8px;
   margin: 0 0 10px;
 }
-.title h1 b {
+.title h1 {
   color: #ffd600;
 }
 .title p {
@@ -82,7 +88,10 @@ header {
 nav {
   display: flex;
   gap: 8px;
-  justify-self: end;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 nav button,
 .history-heading button {
@@ -757,6 +766,25 @@ dialog::backdrop {
     overflow: hidden;
   }
 }
+@media (max-width: 1200px) {
+  header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+  .header-layout {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 22px;
+    margin: 0;
+  }
+  nav {
+    position: static;
+    transform: none;
+  }
+}
 @media (max-width: 760px) {
   .app {
     padding: 0 20px;
@@ -766,6 +794,9 @@ dialog::backdrop {
     gap: 18px;
     padding: 20px 0;
     min-height: 0;
+  }
+  .header-layout {
+    display: contents;
   }
   .brand {
     grid-column: 1;
