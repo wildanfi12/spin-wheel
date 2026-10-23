@@ -141,11 +141,13 @@ export const Wheel = forwardRef<
                     height="48"
                   />
                 ) : (
-                  <foreignObject x="281" y="151" width="38" height="38">
-                    <div style={{ color: "#141414", filter: "drop-shadow(0 1px 0 #ffffff)" }}>
-                      <PrizeIcon icon={p.icon} size={38} />
-                    </div>
-                  </foreignObject>
+                  <g
+                    className="segment-icon"
+                    transform="translate(281 151)"
+                    aria-hidden="true"
+                  >
+                    <PrizeIcon icon={p.icon} size={38} />
+                  </g>
                 )}
               </g>
             </g>

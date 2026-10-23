@@ -12,6 +12,8 @@ await page.goto(process.env.CHECK_URL || "http://127.0.0.1:5173/spin-wheel/");
 const charge = page.locator(".charge-button");
 await charge.waitFor();
 await page.waitForFunction(() => !document.querySelector(".charge-button").disabled);
+assert.equal(await page.locator(".wheel-disc foreignObject").count(), 0);
+assert.equal(await page.locator(".wheel-disc .segment-icon").count(), 9);
 
 const energy = () => page.locator(".energy-number").evaluate((node) => parseInt(node.textContent, 10));
 const rotation = () => page.locator(".wheel-disc").evaluate((node) => Number(node.style.transform.match(/rotate\((.*)deg\)/)?.[1] || 0));
@@ -84,14 +86,16 @@ for (const viewport of [
     const title = rect(".title"), wheel = rect(".wheel-shell"), button = rect(".charge-button");
     const matrix = new DOMMatrix(getComputedStyle(document.querySelector(".charge-button")).transform);
     return {
-      titleCenter: title.left + title.width / 2,
+      titleLeft: title.left,
+      titleAlign: getComputedStyle(document.querySelector(".title")).textAlign,
       wheelCenter: wheel.left + wheel.width / 2,
       buttonCenter: button.left + button.width / 2,
       tilt: Math.abs(matrix.b) + Math.abs(matrix.c),
       overflow: document.documentElement.scrollWidth - innerWidth,
     };
   });
-  assert.ok(Math.abs(layout.titleCenter - viewport.width / 2) <= 1.5);
+  assert.equal(layout.titleAlign, "left");
+  assert.ok(layout.titleLeft >= 0 && layout.titleLeft < viewport.width / 2);
   assert.ok(Math.abs(layout.wheelCenter - layout.buttonCenter) <= 1.5);
   assert.ok(layout.tilt < 0.001);
   assert.ok(layout.overflow <= 0);
