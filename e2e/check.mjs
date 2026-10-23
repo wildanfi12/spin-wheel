@@ -1,0 +1,114 @@
+﻿import { chromium } from "@playwright/test";
+import assert from "node:assert/strict";
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+const errors = [];
+page.on("pageerror", (e) => errors.push(e.message));
+page.on("console", (m) => {
+  if (m.type() === "error") errors.push(m.text());
+});
+await page.goto("http://127.0.0.1:5173/spin-wheel/");
+const charge = page.locator(".charge-button");
+await charge.waitFor();
+await page.waitForFunction(
+  () => !document.querySelector(".charge-button").disabled,
+);
+await page.screenshot({ path: "../desktop-preview.png", fullPage: true });
+await page.getByRole("button", { name: "HISTORY" }).click();
+assert.match(
+  await page.locator(".history-dialog").innerText(),
+  /Belum ada putaran/,
+);
+await page.getByRole("button", { name: "Tutup history" }).click();
+const box = await charge.boundingBox();
+await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+await page.mouse.down();
+await page.waitForTimeout(400);
+await page.mouse.up();
+assert.match(await charge.innerText(), /HOLD TO CHARGE/);
+await page.mouse.down();
+await page.waitForTimeout(1800);
+assert.match(await charge.innerText(), /RELEASE TO SPIN/);
+await page.waitForTimeout(300);
+assert.equal(await page.locator(".win-dialog").isVisible(), false);
+await page.mouse.up();
+await page.waitForTimeout(7300);
+assert.equal(await page.locator(".win-dialog").isVisible(), true);
+const saved = await page.evaluate(async () => {
+  const d = await new Promise((res, rej) => {
+    const r = indexedDB.open("howell-booth", 1);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return await new Promise((res) => {
+    const r = d.transaction("app").objectStore("app").get("state");
+    r.onsuccess = () => res(r.result);
+  });
+});
+assert.equal(saved.spins.length, 1);
+const r = saved.spins[0];
+const angle = await page
+  .locator(".wheel-disc")
+  .evaluate((el) => Number(el.style.transform.match(/rotate\((.*)deg\)/)[1]));
+assert.equal(Math.round(((360 - (angle % 360)) % 360) / 36) % 10, r.segment);
+await page.screenshot({ path: "../winning-preview.png", fullPage: true });
+await page.getByRole("button", { name: "SELESAI" }).click();
+await page.waitForFunction(() =>
+  document.querySelector(".app").classList.contains("phase-idle"),
+);
+await page.reload();
+await page.getByRole("button", { name: "HISTORY" }).click();
+assert.match(
+  await page.locator(".history-dialog").innerText(),
+  new RegExp(r.code),
+);
+await page.getByRole("button", { name: "Tutup history" }).click();
+await charge.focus();
+await page.keyboard.down("Space");
+await page.waitForTimeout(1700);
+await charge.dispatchEvent("pointercancel");
+await page.keyboard.up("Space");
+assert.match(await charge.innerText(), /HOLD TO CHARGE/);
+await page.getByLabel("Mode tanpa tahan").check();
+await charge.click();
+await page.waitForTimeout(1700);
+assert.match(await charge.innerText(), /TAP TO SPIN/);
+await charge.click();
+await page.waitForTimeout(7300);
+await page.getByRole("button", { name: "SELESAI" }).click();
+await page.setViewportSize({ width: 390, height: 844 });
+await page.screenshot({ path: "../mobile-preview.png", fullPage: true });
+assert.equal(
+  await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  true,
+);
+const wheel = await page.locator(".wheel-shell").boundingBox();
+assert.ok(wheel.x >= 0 && wheel.x + wheel.width <= 390);
+await page.getByRole("button", { name: "HISTORY" }).click();
+await page.screenshot({ path: "../history-preview.png", fullPage: true });
+const downloadPromise = page.waitForEvent("download");
+await page.getByRole("button", { name: "EXPORT CSV" }).click();
+const download = await downloadPromise;
+assert.equal(download.suggestedFilename(), "howell-history.csv");
+await page.getByRole("button", { name: "Tutup history" }).click();
+await page.getByLabel("Mode tanpa tahan").uncheck();
+const mobileButton = await charge.boundingBox();
+await page.mouse.move(mobileButton.x + mobileButton.width / 2, mobileButton.y + mobileButton.height / 2);
+await page.mouse.down();
+await page.waitForTimeout(1700);
+await charge.dispatchEvent("lostpointercapture", { pointerId: 1 });
+await page.mouse.up();
+assert.match(await charge.innerText(), /HOLD TO CHARGE/);
+await charge.focus();
+await page.keyboard.down("Enter");
+await page.waitForTimeout(1700);
+assert.match(await charge.innerText(), /RELEASE TO SPIN/);
+await page.keyboard.up("Enter");
+await page.waitForTimeout(7300);
+assert.equal(await page.locator(".win-dialog").isVisible(), true);
+assert.deepEqual(errors, []);
+console.log(
+  "PASS: early release, full hold/no auto-spin, spin accuracy, result, next session, history refresh, keyboard cancellation, accessible two-tap, 390px layout, console.",
+);
+await browser.close();
+

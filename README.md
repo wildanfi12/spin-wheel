@@ -1,65 +1,83 @@
-# HOWELL SPIN & WIN
+﻿# HOWELL Kinetic Energy Wheel — local edition
 
-Game booth INDOCOMTECH 2026 untuk PT Howell Niaga Indonesia. React + TypeScript + Vite, SVG wheel, Motion, Tailwind CSS, Lucide, Canvas Confetti, Web Audio, IndexedDB, dan PWA. Target: https://wildanfi12.github.io/spin-wheel/
+React 19 / TypeScript / Vite / Motion / IndexedDB. Local development only.
 
-## Menjalankan
+## Run
 
-Node.js 22.12+ dan pnpm 10 diperlukan.
+From this folder on Windows:
 
-```sh
-pnpm install --frozen-lockfile
-pnpm dev
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
-pnpm preview
+```powershell
+npm.cmd ci
+npm.cmd run dev -- --port 5173
 ```
 
-Route game `/spin-wheel/`; dashboard `/spin-wheel/#/admin`. Hash routing aman untuk refresh pada GitHub Pages. Semua aset penting dibundel lokal, tanpa font CDN.
+Open http://127.0.0.1:5173/spin-wheel/ . Stop the foreground server with Ctrl+C.
+The development server is bound to loopback. No publish or deployment command is needed.
 
-## Operasional booth
+## Interaction
 
-1. Buka dashboard melalui ikon pengaturan dan pilih **Masuk sebagai petugas**.
-2. Isi stok aktual, gambar hadiah jika tersedia, ketentuan diskon, dan masa berlaku. Stok default **100 unit per kategori adalah data contoh**, bukan stok perusahaan.
-3. Preview dan simpan konfigurasi. Kembali ke permainan; satu sesi awal tersedia.
-4. Pengunjung menekan **SPIN NOW**. Hasil dan pengurangan stok disimpan atomik sebelum animasi 6,5 detik dimulai.
-5. Cocokkan kode klaim di **Histori & klaim**, serahkan hadiah, lalu konfirmasi **Klaim**.
-6. Di **Ringkasan**, pilih **Peserta berikutnya**. Sesi hanya dapat dilanjutkan setelah klaim atau void.
-7. Void hasil yang belum diklaim dengan alasan; stok dikembalikan tepat sekali dan audit tersimpan. Hadiah yang sudah diklaim tidak bisa di-void.
-8. Ekspor backup JSON setiap akhir hari; ekspor CSV untuk laporan berformat waktu Asia/Jakarta.
+Hold the yellow button for 1.5 seconds; release only after FULL POWER. Early release,
+pointer cancellation, capture loss, window blur, or hiding the tab cancels charging.
+Space and Enter support the same hold/release interaction. Mode tanpa tahan offers
+one tap to charge and a second deliberate tap to spin; it never auto-spins.
 
-Suara dimulai setelah interaksi dan dinonaktifkan secara default. Kontrol fullscreen bergantung dukungan browser; iPhone dapat menggunakan Add to Home Screen. Mode kiosk menyembunyikan informasi sekunder, bukan mengunci sistem operasi.
+The wheel accelerates and decelerates over 6.5 seconds. Reduced-motion users receive
+a short spin. Winner selection and atomic stock reservation happen before animation.
+Ten segments stay visible; unavailable prizes have zero selection probability.
+SELESAI opens the next participant session without removing past results.
 
-## Peluang dan keandalan
+History shows newest first, with Asia/Jakarta timestamps and CSV export. No delete UI.
+Admin.tsx and admin navigation have been removed. Prize configuration lives in src/model.ts.
+Existing persisted stock, image configuration, and history remain in IndexedDB.
 
-Default 10 segmen: baju 10%, diskon 30%, kabel 30%, payung 20%, earphone 10%. Bobot berlaku per segmen. Dashboard dan informasi peluang publik menunjukkan peluang kategori sesungguhnya setelah stok/nonaktif/bobot diperhitungkan. Segmen tetap sama besar; luasnya tidak mengindikasikan peluang ketika bobot berbeda. Hadiah habis/nonaktif dikeluarkan dari roda sesi baru. Snapshot roda sesi berjalan dipertahankan agar jarum tetap cocok dengan hasil tersimpan.
+## Storage compatibility
 
-Pemilihan memakai Web Crypto. Sudut akhir dihitung berdasarkan pusat segmen, dengan enam putaran penuh dan easing akselerasi/deselerasi. Label dikontrarotasi agar tegak. Reduced motion mempersingkat animasi dan menonaktifkan confetti. IndexedDB read-write transaction menserialisasi pembacaan dan perubahan antar tab. Refresh saat animasi menampilkan hasil yang sama, tidak mengambil stok lagi. Kode unik format `HW-` + 12 digit heksadesimal diperiksa terhadap histori.
+The existing database `howell-booth`, store `app`, key `state`, schema version 1 remain.
+Old hexadecimal claim codes are accepted; new codes are sequential HW-000001 etc.
+A refresh during a reserved spin reopens its saved result and does not reserve twice.
+SELESAI acknowledges the result; it does not mark the physical gift as claimed.
+Browser data is scoped to origin/profile: data on GitHub Pages, localhost, and
+127.0.0.1 are separate. No remote history is automatically imported or deleted.
+Keep using the same local hostname and port to retain access to local history.
 
-## Penyimpanan dan batas keamanan
+## Assets
 
-**Mode satu perangkat saja.** Stok, sesi, gambar upload dan histori hanya berada di browser/origin ini; tidak ada sinkronisasi lintas perangkat. Browser lain, mode privat, domain lain, atau penghapusan site data berarti penyimpanan berbeda/hilang. Backup JSON adalah sarana pemulihan. Tidak ada data pribadi peserta yang diminta.
+Original HOWELL logos are retained. The repository has no prize product photos.
+The earphone image is copied unchanged from the existing local HOWELL asset folder.
+Shirt, discount, data cable, and umbrella use icons. Existing saved product photos
+are still honored. No substitute or invented product designs were generated.
 
-Dashboard petugas memakai konfirmasi masuk lokal, **bukan autentikasi atau keamanan kuat**. Jangan menggunakan ini sebagai sistem anti-kecurangan di perangkat publik tanpa pengawasan. Tidak ada password/token hardcoded. Untuk lintas perangkat atau keamanan sungguhan, ganti service penyimpanan dengan backend yang memvalidasi transaksi stok, otorisasi petugas, dan klaim secara terpusat. Jaga domain deployment tetap sama agar histori lokal tetap dapat diakses.
+## Checks
 
-PWA precache tersedia pada **build produksi** setelah service worker selesai memasang cache. Kunjungan pertama membutuhkan koneksi. Kunjungi ulang aplikasi online, kemudian uji offline sebelum membuka booth. Update service worker menunggu tab lama ditutup agar tidak memotong sesi. Upload gambar tersimpan sebagai data URL dalam IndexedDB; PNG/JPG/WebP maksimal 1,5 MB per gambar. Backup maksimal 15 MB. Browser dapat menghapus storage karena kuota, maka backup tetap wajib.
+```powershell
+npm.cmd run typecheck
+npm.cmd run lint
+npm.cmd test
+npm.cmd run build
+npx.cmd playwright install chromium
+node e2e/check.mjs
+```
 
-## Deployment
+The browser check requires the local server above. It uses a fresh browser profile,
+so test results do not alter the user's real booth history. Screenshots are saved
+beside the project folder. Tested browser coverage does not replace physical iPhone,
+Android, haptic, or touchscreen testing.
 
-Workflow `.github/workflows/deploy.yml` menjalankan typecheck, lint, unit test, production build, upload artifact, dan deploy melalui GitHub Pages resmi. Di GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Push ke `main` memicu workflow; tersedia juga workflow_dispatch. Tidak memakai force push. Vite base sudah `/spin-wheel/`.
+Implementation is shared on branch `feat/hold-to-charge` following the repository owner's request. No deployment was requested. The existing main-branch workflow deploys GitHub Pages, so this feature branch has not been merged into main.
 
-## Struktur
+## Verification performed
 
-- `src/engine.ts`: pemilihan berbobot, matematika rotasi, transisi klaim/void.
-- `src/storage.ts`: adapter IndexedDB dan transaksi atomik.
-- `src/model.ts`: konfigurasi awal dan validasi backup.
-- `src/Wheel.tsx`: SVG roda, label tegak, ikon/gambar hadiah.
-- `src/App.tsx`: permainan, sesi, audio, modal hasil.
-- `src/Admin.tsx`: stok, segmen, peluang, histori, backup dan pengaturan.
-- `src/styles.css`: desain responsif hitam/kuning/putih.
-- `tests/engine.test.ts`: pengujian probabilitas, sudut, stok, klaim, transaksi serentak dan pemulihan.
+- TypeScript check, ESLint, and local production build: passed.
+- Vitest: 12 tests passed (geometry, probability, stock transactions, rollback,
+  session locking, charge gates, fixed ten-segment selection, monotonic easing).
+- Chromium desktop 1920x1080 and viewport 390x844: screenshots inspected.
+- Browser checks passed: short hold cancellation, full charge with no auto-spin,
+  release spin, pointer/result match, saved result, next session, history after
+  reload, pointercancel, lostpointercapture, keyboard spin, accessible two-tap mode,
+  CSV download, no horizontal mobile overflow, and no console errors.
+- Physical phones, real touchscreen hardware, audible output, and haptic output
+  have not been tested.
+- npm audit reports three inherited development-tool findings (one moderate,
+  two critical) in Vitest/tinypool dependencies; no production dependency findings.
+  Major test-tool upgrades were not applied as part of this UI change.
 
-## Aset dan referensi
-
-Logo asli diambil dari website yang diberikan pemilik proyek: https://wildanfi12.github.io/Howell/ (`assets/howell-logo.png`, `howell-logo-white.png`, `howell-icon-swirl.png`). Identitas visual pameran dirujuk dari https://indocomtech.net/; tidak menyalin gambar pameran. Logo tetap milik pemilik merek dan penggunaannya dibatasi untuk aplikasi HOWELL ini, bukan lisensi redistribusi umum. Ikon hadiah Lucide (ISC) adalah ilustrasi placeholder, bukan foto produk asli; dapat diganti melalui admin. Audio disintesis lokal, tanpa aset audio pihak ketiga.

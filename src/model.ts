@@ -1,4 +1,4 @@
-export type Prize = {
+﻿export type Prize = {
   id: string;
   name: string;
   description: string;
@@ -65,7 +65,8 @@ export const initial = (): State => ({
     stock: 100,
     enabled: true,
     weight: 1,
-    image: "",
+    image:
+      id === "earphone" ? `${import.meta.env.BASE_URL}assets/earphone.png` : "",
   })),
   segments: [
     "shirt",
@@ -108,7 +109,7 @@ export function validate(s: State) {
     s.segments.length > 20 ||
     new Set(s.prizes.map((p) => p.id)).size !== s.prizes.length
   )
-    throw Error("Gunakan 2–20 segmen dan ID hadiah unik.");
+    throw Error("Gunakan 2â€“20 segmen dan ID hadiah unik.");
   for (const p of s.prizes)
     if (
       !p.id ||
@@ -144,7 +145,7 @@ export function validate(s: State) {
       ids.has(r.id) ||
       codes.has(r.code) ||
       sessions.has(r.sessionId) ||
-      !/^HW-[A-F0-9]{12}$/.test(r.code) ||
+      !/^HW-(?:[A-F0-9]{12}|\d{6,9})$/.test(r.code) ||
       !Number.isFinite(Date.parse(r.at)) ||
       !["Won", "Pending Claim", "Claimed", "Voided"].includes(r.status) ||
       !s.prizes.some((p) => p.id === r.prizeId) ||
@@ -171,4 +172,6 @@ export function validate(s: State) {
 }
 export const safeImage = (s: string) =>
   typeof s === "string" &&
-  (!s || /^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(s));
+  (!s ||
+    /^\/spin-wheel\/assets\/[a-zA-Z0-9._-]+\.png$/.test(s) ||
+    /^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(s));

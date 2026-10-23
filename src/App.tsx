@@ -1,216 +1,310 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import {
   Volume2,
   VolumeX,
   Maximize,
-  Settings,
-  ArrowUpRight,
-  ArrowRight,
-  Check,
-  Gift,
-  RotateCw,
+  History,
+  X,
+  Download,
+  Zap,
 } from "lucide-react";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
-import { available, reserve, transition } from "./engine";
+import { available, reserve, rotationFor, transition } from "./engine";
 import { read, mutate } from "./storage";
-import { tone, fanfare } from "./audio";
+import { tone, fanfare, chargingAudio } from "./audio";
+import { chargeAt, canRelease, spinEase, type Phase } from "./interaction";
 import type { State, Spin } from "./model";
-import { Admin } from "./Admin";
+const date = (at: string) =>
+  new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(at));
 export default function App() {
-  const [state, setState] = useState<State>(),
-    [error, setError] = useState(""),
-    [admin, setAdmin] = useState(location.hash === "#/admin"),
-    [sound, setSound] = useState(false),
-    [spinning, setSpinning] = useState(false),
-    [show, setShow] = useState(true),
-    [locked, setLocked] = useState(false),
-    [animationResult, setAnimationResult] = useState<Spin>();
+  const [state, setState] = useState<State>();
+  const [phase, setPhase] = useState<Phase>("IDLE");
+  const [progress, setProgress] = useState(0);
+  const [sound, setSound] = useState(false);
+  const [history, setHistory] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<Spin>();
+  const [easy, setEasy] = useState(false);
   const wheel = useRef<SVGSVGElement>(null),
-    busy = useRef(false),
+    dialog = useRef<HTMLDialogElement>(null),
+    historyDialog = useRef<HTMLDialogElement>(null);
+  const phaseRef = useRef<Phase>("IDLE"),
     frame = useRef(0),
-    modal = useRef<HTMLDialogElement>(null);
-  const sync = async () => {
-    try {
-      const s = await read();
-      setState(s);
-    } catch (e) {
-      setError(String(e));
-    }
+    angle = useRef(0),
+    held = useRef<string | number | null>(null),
+    start = useRef(0);
+  const audio = useRef<ReturnType<typeof chargingAudio> | null>(null);
+  const change = (next: Phase) => {
+    phaseRef.current = next;
+    setPhase(next);
+  };
+  const cancel = () => {
+    if (!["CHARGING", "READY"].includes(phaseRef.current)) return;
+    cancelAnimationFrame(frame.current);
+    held.current = null;
+    audio.current?.stop();
+    audio.current = null;
+    setProgress(0);
+    change("IDLE");
   };
   useEffect(() => {
-    void sync();
-    const hash = () => setAdmin(location.hash === "#/admin");
-    const focus = () => {
-      if (!busy.current) void sync();
+    let active = true;
+    void read()
+      .then((s) => {
+        if (!active) return;
+        setState(s);
+        const pending = s.spins.find(
+          (r) => r.id === s.session.spinId && r.status !== "Voided",
+        );
+        if (pending) {
+          setResult(pending);
+          angle.current = pending.rotation;
+          change("RESULT");
+        }
+      })
+      .catch((e) => setError(String(e)));
+    const blur = () => cancel();
+    const hidden = () => {
+      if (document.hidden) cancel();
     };
-    window.addEventListener("hashchange", hash);
-    window.addEventListener("focus", focus);
+    window.addEventListener("blur", blur);
+    document.addEventListener("visibilitychange", hidden);
     return () => {
-      window.removeEventListener("hashchange", hash);
-      window.removeEventListener("focus", focus);
+      active = false;
       cancelAnimationFrame(frame.current);
+      audio.current?.stop();
+      window.removeEventListener("blur", blur);
+      document.removeEventListener("visibilitychange", hidden);
     };
   }, []);
-  const current = state?.spins.find((r) => r.id === state.session.spinId);
-  const result = animationResult || current;
-  const visible =
-    !!result && !spinning && show && !admin && result.status !== "Voided";
   useEffect(() => {
-    if (visible) {
-      modal.current?.showModal();
-    } else modal.current?.close();
-  }, [visible]);
-  async function action(fn: (s: State) => void) {
-    try {
-      setError("");
-      setState(await mutate(fn));
-      return true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      return false;
-    }
+    if (phase === "RESULT" && result) dialog.current?.showModal();
+    else dialog.current?.close();
+  }, [phase, result]);
+  useEffect(() => {
+    if (history) historyDialog.current?.showModal();
+    else historyDialog.current?.close();
+  }, [history]);
+  function begin(source: string | number) {
+    if (
+      phaseRef.current !== "IDLE" ||
+      !state ||
+      !available(state).length ||
+      history
+    )
+      return;
+    held.current = source;
+    start.current = performance.now();
+    change("CHARGING");
+    setError("");
+    audio.current = chargingAudio(sound ? state.settings.volume : 0);
+    const update = (now: number) => {
+      const p = chargeAt(now - start.current);
+      setProgress(p);
+      audio.current?.update(p);
+      if (p === 1) {
+        change("READY");
+        navigator.vibrate?.(25);
+      } else frame.current = requestAnimationFrame(update);
+    };
+    frame.current = requestAnimationFrame(update);
+  }
+  function release(source: string | number) {
+    if (held.current !== source) return;
+    held.current = null;
+    if (canRelease(phaseRef.current)) {
+      audio.current?.stop();
+      audio.current = null;
+      void spin();
+    } else cancel();
   }
   async function spin() {
-    if (busy.current || !state) return;
-    busy.current = true;
-    setSpinning(true);
-    setShow(true);
-    setError("");
-    tone(440, sound ? state.settings.volume : 0, 0.15);
+    if (phaseRef.current !== "READY" || !state) return;
+    change("SPINNING");
     try {
-      let r!: Spin;
-      const s = await mutate((data) => {
-        r = reserve(
-          data,
+      let selected!: Spin;
+      const previous = angle.current;
+      const saved = await mutate((s) => {
+        selected = reserve(
+          s,
           crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296,
         );
+        selected.rotation = rotationFor(
+          selected.segment,
+          selected.segments.length,
+          previous,
+        );
       });
-      setAnimationResult(r);
-      setState(s);
+      setState(saved);
+      setResult(selected);
       const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const duration = reduced ? 250 : 6500;
-      let start = 0,
-        lastTick = -1;
+      const duration = reduced ? 300 : 6500;
+      let started = 0,
+        lastTick = Math.floor((previous + 18) / 36);
       const animate = (now: number) => {
-        start ||= now;
-        const t = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - t, 4) * (1 + 4 * t);
-        const angle = r.rotation * eased;
-        if (wheel.current) {
-          wheel.current.style.transform = `rotate(${angle}deg)`;
-          wheel.current
-            .querySelectorAll<SVGGElement>("[data-label-angle]")
-            .forEach((el) =>
-              el.setAttribute(
-                "transform",
-                `rotate(${-Number(el.dataset.labelAngle) - angle} 300 140)`,
-              ),
-            );
-        }
-        const tick = Math.floor(angle / (360 / r.segments.length));
+        started ||= now;
+        const t = Math.min(1, (now - started) / duration);
+        angle.current = previous + (selected.rotation - previous) * spinEase(t);
+        if (wheel.current)
+          wheel.current.style.transform = `rotate(${angle.current}deg)`;
+        const tick = Math.floor(
+          (angle.current + 180 / selected.segments.length) /
+            (360 / selected.segments.length),
+        );
         if (tick !== lastTick) {
-          tone(900, sound ? s.settings.volume : 0, 0.025);
+          tone(900, sound ? saved.settings.volume : 0, 0.025);
+          if (!reduced)
+            document
+              .querySelector(".pointer")
+              ?.animate(
+                [
+                  { transform: "rotate(-17deg)" },
+                  { transform: "rotate(0deg)" },
+                ],
+                { duration: 110 },
+              );
           lastTick = tick;
         }
+        if (t > 0.45 && phaseRef.current === "SPINNING") change("DECELERATING");
         if (t < 1) frame.current = requestAnimationFrame(animate);
         else {
-          void (async () => {
-            await action((data) => transition(data, r.id, "Pending Claim"));
-            setAnimationResult(undefined);
-            setSpinning(false);
-            busy.current = false;
-            fanfare(sound ? s.settings.volume : 0);
+          change("SETTLING");
+          tone(650, sound ? saved.settings.volume : 0, 0.07);
+          void mutate((s) => {
+            if (s.spins.find((r) => r.id === selected.id)?.status === "Won")
+              transition(s, selected.id, "Pending Claim");
+          })
+            .then(setState)
+            .catch((e) => setError(String(e)));
+          const settledAt = now;
+          const celebrate = (time: number) => {
+            if (time - settledAt < 450) {
+              frame.current = requestAnimationFrame(celebrate);
+              return;
+            }
+            change("WINNING");
+            fanfare(sound ? saved.settings.volume : 0);
             if (!reduced)
               void confetti({
-                particleCount: 110,
+                particleCount: 85,
                 spread: 85,
-                origin: { y: 0.6 },
-                colors: ["#ffd600", "#ffffff"],
+                origin: { y: 0.58 },
+                colors: ["#FFD600", "#FFFFFF"],
                 disableForReducedMotion: true,
               });
-          })();
+            change("RESULT");
+          };
+          frame.current = requestAnimationFrame(celebrate);
         }
       };
       frame.current = requestAnimationFrame(animate);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setSpinning(false);
-      busy.current = false;
+      setError(String(e));
+      setProgress(0);
+      change("IDLE");
     }
   }
-  useEffect(() => {
-    if (current?.status === "Won" && !busy.current) {
-      void action((s) => transition(s, current.id, "Pending Claim"));
+  async function finish() {
+    try {
+      setState(
+        await mutate((s) => {
+          if (s.session.spinId === result?.id)
+            s.session = { id: crypto.randomUUID() };
+        }),
+      );
+      setResult(undefined);
+      setProgress(0);
+      change("IDLE");
+    } catch (e) {
+      setError(String(e));
     }
-  }, [current?.id, current?.status]);
-  if (!state)
-    return (
-      <main className="loading">
-        <RotateCw /> {error || "Menyiapkan pengalaman HOWELL…"}
-      </main>
+  }
+  function csv() {
+    if (!state) return;
+    const cell = (s: string) =>
+      '"' + (/^[=+@-]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"';
+    const rows = [
+      ["Spin ID", "Hadiah", "Waktu Asia/Jakarta", "Status"],
+      ...[...state.spins]
+        .reverse()
+        .map((r) => [r.code, r.prizeName, date(r.at), r.status]),
+    ];
+    const url = URL.createObjectURL(
+      new Blob(
+        ["\uFEFF" + rows.map((r) => r.map(cell).join(",")).join("\r\n")],
+        { type: "text/csv;charset=utf-8" },
+      ),
     );
-  const segments =
-    spinning && result
-      ? result.segments
-      : current
-        ? current.segments
-        : available(state);
-  const volume = () => setSound(!sound);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "howell-history.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
+  const spins = [...(state?.spins || [])].reverse();
   return (
-    <div className={state.settings.kiosk ? "app kiosk" : "app"}>
+    <div
+      className={`app phase-${phase.toLowerCase()}`}
+      style={{ "--energy": progress } as React.CSSProperties}
+    >
       <header>
-        <a href="#/" className="brand" aria-label="Halaman permainan">
-          <img
-            src={
-              state.settings.logo ||
-              `${import.meta.env.BASE_URL}assets/howell-white.png`
-            }
-            alt="HOWELL"
-          />
-          <span>CONNECT TO THE FUTURE</span>
-        </a>
-        <div className="event">
-          <span className="status-dot" /> INDOCOMTECH <b>2026</b>
+        <img
+          className="brand"
+          src={`${import.meta.env.BASE_URL}assets/howell-white.png`}
+          alt="HOWELL"
+        />
+        <div className="title">
+          <h1>
+            HOWELL <b>SPIN & WIN</b>
+          </h1>
+          <p>PUTAR RODANYA, MENANGKAN HADIAHNYA!</p>
         </div>
         <nav>
           <button
-            onClick={volume}
             aria-label={sound ? "Matikan suara" : "Aktifkan suara"}
-            title="Suara"
+            aria-pressed={sound}
+            onClick={() => {
+              setSound(!sound);
+              if (sound) audio.current?.stop();
+            }}
           >
-            {sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
+            {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            <span>{sound ? "ON" : "OFF"}</span>
+          </button>
+          <button
+            disabled={phase !== "IDLE"}
+            onClick={() => {
+              void read()
+                .then(setState)
+                .catch((e) => setError(String(e)));
+              setHistory(true);
+            }}
+          >
+            <History size={18} />
+            <span>HISTORY</span>
           </button>
           <button
             aria-label="Layar penuh"
             onClick={() => {
-              if (document.fullscreenElement)
-                void document
-                  .exitFullscreen()
-                  .catch((e) => setError(String(e)));
-              else if (document.documentElement.requestFullscreen)
-                void document.documentElement
-                  .requestFullscreen?.()
-                  .catch(() =>
-                    setError(
-                      "Gunakan mode layar penuh browser pada perangkat ini.",
-                    ),
-                  );
-              else setError("Layar penuh tidak didukung. Gunakan Add to Home Screen pada iPhone.");
+              const p = document.fullscreenElement
+                ? document.exitFullscreen()
+                : document.documentElement.requestFullscreen?.();
+              if (p)
+                void p.catch(() =>
+                  setError("Layar penuh tidak tersedia pada browser ini."),
+                );
+              else setError("Gunakan layar penuh melalui menu browser.");
             }}
           >
-            <Maximize size={19} />
+            <Maximize size={18} />
           </button>
-          <a
-            href={admin ? "#/" : "#/admin"}
-            aria-label={admin ? "Kembali ke permainan" : "Dashboard petugas"}
-            onClick={(e) => {
-              if (spinning) e.preventDefault();
-            }}
-          >
-            <Settings size={19} />
-          </a>
         </nav>
       </header>
       {error && (
@@ -219,224 +313,284 @@ export default function App() {
           <button onClick={() => setError("")}>Tutup</button>
         </div>
       )}
-      {admin ? (
-        <Admin
-          state={state}
-          setState={setState}
-          action={action}
-          locked={locked}
-          setLocked={setLocked}
-        />
-      ) : (
-        <main className="game">
-          <div className="intro">
-            <div className="eyebrow">
-              <span /> THE HOWELL EXPERIENCE
-            </div>
-            <h1>
-              {state.settings.headline.includes("SPIN & WIN")
-                ? state.settings.headline.split("SPIN & WIN")[0]
-                : ""}
-              <strong>
-                {state.settings.headline.includes("SPIN & WIN")
-                  ? "SPIN & WIN"
-                  : state.settings.headline}<span>✦</span>
-              </strong>
-            </h1>
-            <p>{state.settings.subtitle}</p>
-          </div>
-          <div className="arena">
-            <aside className="side-note">
-              <span className="small-label">ONE SPIN. BIG SMILES.</span>
-              <h2>
-                Giliran kamu
-                <br />
-                untuk beruntung.
-              </h2>
-              <p>
-                Hadiah spesial dari HOWELL.
-                <br />
-                Putar, rayakan, bawa pulang.
-              </p>
-              <div className="mini-rule">
-                <Gift size={22} />
-                <span>
-                  Setiap putaran
-                  <br />
-                  <b>pasti dapat hadiah.</b>
-                </span>
-              </div>
-            </aside>
-            <div className="wheel-area">
-              {segments.length ? (
-                <Wheel
-                  ref={wheel}
-                  segments={segments}
-                  prizes={state.prizes}
-                  rotation={spinning ? 0 : current?.rotation || 0}
-                  logo={state.settings.logo}
-                />
-              ) : (
-                <div className="empty-wheel">
-                  Hadiah hari ini telah habis.
-                  <br />
-                  Terima kasih sudah bermain!
-                </div>
-              )}
-              <div className="wheel-shadow" />
-            </div>
-            <aside className="steps">
-              <span className="small-label">CARA BERMAIN</span>
-              {[
-                "Tekan SPIN NOW",
-                "Temukan hadiahmu",
-                "Klaim di booth HOWELL",
-              ].map((s, i) => (
-                <div className="step" key={s}>
-                  <span>0{i + 1}</span>
-                  <p>{s}</p>
-                </div>
-              ))}
-              <span className="edition">
-                EXHIBITION EDITION <ArrowUpRight size={15} />
-              </span>
-            </aside>
-          </div>
-          <div className="spin-controls">
-            <button
-              className="spin-button"
-              disabled={spinning || !!current || !segments.length}
-              onClick={spin}
-            >
-              {spinning ? "GOOD LUCK…" : current ? "SESI SELESAI" : "SPIN NOW"}
-              <ArrowRight size={23} />
-            </button>
+      <main>
+        <div className="event">
+          <i /> INDOCOMTECH 2026 <span> / </span> INTERACTIVE BOOTH EXPERIENCE
+        </div>
+        <section className="arena">
+          <aside className="intro">
+            <div className="eyebrow">POWER YOUR LUCK</div>
+            <h2>
+              Energi kamu.
+              <br />
+              Kejutan <em>HOWELL.</em>
+            </h2>
             <p>
-              {spinning ? "Roda sedang berputar. Semoga beruntung!" : current
-                ? "Petugas memulai sesi peserta berikutnya melalui dashboard."
-                : "Tekan tombol untuk memutar roda keberuntungan!"}
+              Tahan. Rasakan energinya.
+              <br />
+              Lepaskan untuk hadiahmu.
             </p>
-            {current && !spinning && (
-              <button className="text-button" onClick={() => setShow(true)}>
-                Lihat hasil putaran
-              </button>
+            <div className="technical">
+              <span>01 / CHARGE</span>
+              <span>02 / RELEASE</span>
+              <span>03 / CELEBRATE</span>
+            </div>
+          </aside>
+          <div className="machine">
+            {state ? (
+              <Wheel
+                ref={wheel}
+                segments={result?.segments || state.segments}
+                prizes={state.prizes}
+                rotation={angle.current}
+                logo={state.settings.logo}
+                progress={progress}
+                phase={phase}
+                winner={
+                  ["SETTLING", "WINNING", "RESULT"].includes(phase)
+                    ? result?.segment
+                    : undefined
+                }
+              />
+            ) : (
+              <p>Menyiapkan mesin…</p>
             )}
-          </div>
-          <section className="prize-strip">
-            <div>
-              <span className="small-label">THE PRIZE LINEUP</span>
-              <h3>Hadiah untukmu.</h3>
+            <div className="machine-label">
+              <span>KINETIC ENERGY WHEEL</span>
+              <span>HW / 026</span>
             </div>
-            {state.prizes
-              .filter((p) => state.segments.includes(p.id))
-              .map((p) => (
-                <div
-                  className={
-                    "prize-mini " +
-                    (!p.enabled || !p.stock ? "unavailable" : "")
-                  }
-                  key={p.id}
-                >
-                  {p.image ? (
-                    <img src={p.image} alt="" />
-                  ) : (
-                    <PrizeIcon icon={p.icon} />
-                  )}
-                  <span>
-                    {p.name}
-                    <small>
-                      {p.enabled && p.stock
-                        ? "Siap dimenangkan"
-                        : "Tidak tersedia"}
-                    </small>
-                  </span>
-                </div>
+          </div>
+          <aside className="telemetry">
+            <div className="eyebrow">ENERGY LEVEL</div>
+            <div className="energy-number">
+              {Math.round(progress * 100)}
+              <small>%</small>
+            </div>
+            <div className="energy-bars">
+              {Array.from({ length: 20 }, (_, i) => (
+                <i key={i} className={progress * 20 > i ? "active" : ""} />
               ))}
-          </section>
-          <details className="odds">
-            <summary>Peluang hadiah & ketentuan</summary>
+            </div>
             <p>
-              Segmen berukuran sama. Peluang mengikuti bobot aktif dan stok,
-              bukan hanya luas segmen.
+              {phase === "READY"
+                ? "FULL POWER · RELEASE"
+                : busy
+                  ? "KINETIC SYSTEM ACTIVE"
+                  : "HOLD TO ACTIVATE"}
             </p>
-            {state.prizes.map((p) => {
-              const a = available(state),
-                sum = a.reduce(
-                  (n, id) => n + state.prizes.find((x) => x.id === id)!.weight,
-                  0,
-                );
-              return (
-                <span key={p.id}>
-                  {p.name}:{" "}
-                  {sum
-                    ? (
-                        (100 *
-                          a.filter((id) => id === p.id).length *
-                          p.weight) /
-                        sum
-                      ).toFixed(1)
-                    : 0}
-                  % ·{" "}
-                </span>
-              );
-            })}
-            <p>
-              {state.settings.terms} Berlaku: {state.settings.expiry}.
-            </p>
-          </details>
-        </main>
-      )}
+            <div className="system">
+              <i /> SYSTEM READY
+              <br />
+              <small>10 SEGMEN · 5 JENIS HADIAH</small>
+            </div>
+          </aside>
+        </section>
+        <section className="controls">
+          <div className="control-caption">
+            <span>
+              {busy ? "PUTARAN BERLANGSUNG" : "TAHAN UNTUK MENGISI ENERGI"}
+            </span>
+            <span>1.5 SEC / FULL POWER</span>
+          </div>
+          <button
+            className="charge-button"
+            disabled={!state || busy || !available(state).length}
+            onContextMenu={(e) => e.preventDefault()}
+            onPointerDown={(e) => {
+              if (easy || e.button !== 0 || held.current !== null) return;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              begin(e.pointerId);
+            }}
+            onPointerUp={(e) => {
+              if (!easy) release(e.pointerId);
+            }}
+            onPointerCancel={cancel}
+            onLostPointerCapture={() => {
+              if (typeof held.current === "number") cancel();
+            }}
+            onKeyDown={(e) => {
+              if (!easy && [" ", "Enter"].includes(e.key)) {
+                e.preventDefault();
+                if (!e.repeat) begin("keyboard");
+              }
+            }}
+            onKeyUp={(e) => {
+              if (!easy && [" ", "Enter"].includes(e.key)) {
+                e.preventDefault();
+                release("keyboard");
+              }
+            }}
+            onBlur={() => {
+              if (!easy) cancel();
+            }}
+            onClick={() => {
+              if (easy) {
+                if (phaseRef.current === "IDLE") begin("easy");
+                else if (phaseRef.current === "READY") release("easy");
+                else cancel();
+              }
+            }}
+          >
+            <span
+              className="button-fill"
+              style={{ transform: `scaleX(${progress})` }}
+            />
+            <Zap size={23} />
+            <span>
+              {phase === "READY"
+                ? easy
+                  ? "TAP TO SPIN"
+                  : "RELEASE TO SPIN"
+                : phase === "CHARGING"
+                  ? "CHARGING ENERGY"
+                  : busy
+                    ? "GOOD LUCK"
+                    : "HOLD TO CHARGE"}
+            </span>
+            <span className="button-percent">
+              {Math.round(progress * 100)}%
+            </span>
+          </button>
+          <div className="control-bottom">
+            <span>
+              {phase === "READY"
+                ? "Energi penuh. Lepaskan dan lihat keberuntunganmu."
+                : "Lepas sebelum penuh? Coba lagi."}
+            </span>
+            <label>
+              <input
+                type="checkbox"
+                checked={easy}
+                disabled={phase !== "IDLE"}
+                onChange={(e) => setEasy(e.target.checked)}
+              />{" "}
+              Mode tanpa tahan
+            </label>
+          </div>
+          <span className="sr-only" role="status">
+            {phase === "READY"
+              ? "Energi penuh. Lepaskan untuk berputar."
+              : phase}
+          </span>
+        </section>
+        <div className="prize-strip">
+          {state?.prizes.map((p) => (
+            <div key={p.id}>
+              <PrizeIcon icon={p.icon} size={22} />
+              <span>{p.name}</span>
+            </div>
+          ))}
+        </div>
+      </main>
       <footer>
         <span>© 2026 PT Howell Niaga Indonesia</span>
-        <span>MADE FOR CONNECTION. BUILT FOR EXCITEMENT.</span>
         <span>
-          <span className="status-dot" /> BOOTH EXPERIENCE
+          <i /> CONNECT TO THE FUTURE
         </span>
       </footer>
       <dialog
-        ref={modal}
+        ref={dialog}
         className="win-dialog"
-        onCancel={() => setShow(false)}
+        aria-labelledby="win-title"
+        onCancel={(e) => {
+          e.preventDefault();
+          void finish();
+        }}
       >
         {result && (
           <motion.div
-            initial={{ scale: 0.92, opacity: 0 }}
+            key={result.id}
+            initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", damping: 20, stiffness: 220 }}
           >
             <div className="eyebrow">CONGRATULATIONS!</div>
-            <h2>
-              YOU WON<span>!</span>
+            <h2 id="win-title">
+              YOU WON<span>&#10022;</span>
             </h2>
             <div className="prize-hero">
               {result.image ? (
                 <img src={result.image} alt={result.prizeName} />
               ) : (
-                <PrizeIcon icon={result.icon} size={90} />
+                <PrizeIcon icon={result.icon} size={100} />
               )}
             </div>
             <h3>{result.prizeName}</h3>
-            <p>Selamat! Kamu memenangkan {result.prizeName}!</p>
-            <p>
-              Tunjukkan hasil ini kepada petugas booth HOWELL untuk mengambil
-              hadiahmu.
-            </p>
-            {result.prizeId === "discount" && (
-              <p className="terms">
-                {state.settings.terms}
-                <br />
-                Berlaku: {state.settings.expiry}
-              </p>
-            )}
+            <p>Tunjukkan hasil ini kepada petugas booth HOWELL.</p>
             <div className="claim-code">
-              <small>KODE KLAIM · {result.status}</small>
+              <small>SPIN ID</small>
               <strong>{result.code}</strong>
             </div>
-            <button className="primary" onClick={() => setShow(false)}>
-              <Check size={18} /> SELESAI
+            <button className="primary" onClick={() => void finish()}>
+              SELESAI
             </button>
             <small>HOWELL · INDOCOMTECH 2026</small>
           </motion.div>
         )}
+      </dialog>
+      <dialog
+        ref={historyDialog}
+        className="history-dialog"
+        aria-labelledby="history-title"
+        onCancel={() => setHistory(false)}
+      >
+        <div className="history-heading">
+          <div>
+            <div className="eyebrow">YOUR LUCK, RECORDED</div>
+            <h2 id="history-title">
+              Spin history<span>.</span>
+            </h2>
+          </div>
+          <button aria-label="Tutup history" onClick={() => setHistory(false)}>
+            <X />
+          </button>
+        </div>
+        <div className="stats">
+          <div>
+            <b>{spins.length}</b>
+            <small>Total Spins</small>
+          </div>
+          <div>
+            <b>{spins.filter((s) => s.status !== "Voided").length}</b>
+            <small>Hadiah Dimenangkan</small>
+          </div>
+          <div>
+            <b className="last-time">{spins[0] ? date(spins[0].at) : "—"}</b>
+            <small>Last Spin · WIB</small>
+          </div>
+        </div>
+        <button className="export" onClick={csv} disabled={!spins.length}>
+          <Download size={16} /> EXPORT CSV
+        </button>
+        <div className="history-list">
+          {!spins.length ? (
+            <p className="empty">
+              Belum ada putaran. Hadiah pertamamu menunggu!
+            </p>
+          ) : (
+            spins.map((r, i) => (
+              <article key={r.id}>
+                <span className="ordinal">
+                  #{String(spins.length - i).padStart(3, "0")}
+                </span>
+                <div className="history-icon">
+                  {r.image ? (
+                    <img src={r.image} alt="" />
+                  ) : (
+                    <PrizeIcon icon={r.icon} />
+                  )}
+                </div>
+                <div>
+                  <h3>{r.prizeName}</h3>
+                  <p>{date(r.at)} WIB</p>
+                  <small>
+                    {r.code} {r.status === "Voided" ? "· Dibatalkan" : ""}
+                  </small>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
       </dialog>
     </div>
   );
