@@ -27,6 +27,35 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      if (location.protocol === "file:") {
+        document.addEventListener("DOMContentLoaded", () => {
+          const root = document.getElementById("root");
+          if (root) {
+            root.innerHTML = `
+              <div style="min-height:100vh;background:#0d0d0d;color:#fff;font-family:Arial,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
+                <div style="background:#161616;border:1px solid #ffd600;border-radius:18px;max-width:540px;width:100%;padding:32px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,0.9);">
+                  <div style="font-size:36px;margin-bottom:12px;">🎡</div>
+                  <h1 style="font-size:22px;color:#ffd600;margin:0 0 10px;letter-spacing:0.5px;">HOWELL SPIN & WIN</h1>
+                  <p style="color:#aaa;font-size:14px;line-height:1.6;margin:0 0 24px;">
+                    Website ini dibuat menggunakan <b>React & PWA modern</b> yang membutuhkan web server lokal (karena kebijakan keamanan browser melarang akses file langsung <code>file:///</code>).
+                  </p>
+                  <div style="background:#202020;border-radius:12px;padding:18px;text-align:left;font-size:13px;color:#ddd;margin-bottom:24px;border:1px solid #333;">
+                    <div style="font-weight:bold;color:#ffd600;margin-bottom:8px;">💡 Cara Membuka:</div>
+                    <div style="margin-bottom:10px;"><b>Cara 1 (Paling Mudah):</b><br/>Klik dua kali file <code style="color:#ffd600;background:#111;padding:2px 6px;border-radius:4px;">JALANKAN-WEBSITE.bat</code> di folder proyek ini.</div>
+                    <div style="margin-bottom:10px;"><b>Cara 2 (Server sudah berjalan):</b><br/>Buka browser ke alamat: <a href="http://127.0.0.1:5173/spin-wheel/" style="color:#ffd600;font-weight:bold;text-decoration:underline;">http://127.0.0.1:5173/spin-wheel/</a></div>
+                    <div><b>Cara 3 (Via Terminal):</b><br/>Buka terminal di folder ini lalu ketik: <code style="color:#ffd600;background:#111;padding:2px 6px;border-radius:4px;">npm run dev</code></div>
+                  </div>
+                  <a href="http://127.0.0.1:5173/spin-wheel/" style="display:inline-block;background:#ffd600;color:#111;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none;">
+                    Buka http://127.0.0.1:5173
+                  </a>
+                </div>
+              </div>
+            `;
+          }
+        });
+      }
+    </script>
     <script data-pages-fallback>const s=document.createElement("script");s.type="module";s.src=location.hostname==="127.0.0.1"||location.hostname==="localhost"?"/src/main.tsx":"/spin-wheel/assets/app.js";document.head.appendChild(s);</script>
   </body>
 </html>
