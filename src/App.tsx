@@ -308,16 +308,16 @@ export default function App() {
       style={{ "--energy": displayedPower } as React.CSSProperties}
     >
       <header>
-        <img
-          className="brand"
-          src={`${import.meta.env.BASE_URL}assets/howell-white.png`}
-          alt="HOWELL"
-        />
-        <div className="title">
-          <h1>
-            HOWELL <b>SPIN & WIN</b>
-          </h1>
-          <p>PUTAR RODANYA, MENANGKAN HADIAHNYA!</p>
+        <div className="header-layout">
+          <img
+            className="brand"
+            src={`${import.meta.env.BASE_URL}assets/howell-white.png`}
+            alt="HOWELL"
+          />
+          <div className="title">
+            <h1>SPIN & WIN</h1>
+            <p>PUTAR RODANYA, MENANGKAN HADIAHNYA!</p>
+          </div>
         </div>
         <nav>
           <button
