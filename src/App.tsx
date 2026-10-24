@@ -42,6 +42,7 @@ export default function App() {
   const [result, setResult] = useState<Spin>();
   const [easy, setEasy] = useState(false);
   const wheel = useRef<SVGSVGElement>(null),
+    hubLogo = useRef<HTMLImageElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
     historyDialog = useRef<HTMLDialogElement>(null);
   const phaseRef = useRef<Phase>("IDLE"),
@@ -188,6 +189,8 @@ export default function App() {
         angle.current = previous + (selected.rotation - previous) * spinEase(t);
         if (wheel.current)
           wheel.current.style.transform = `rotate(${angle.current}deg)`;
+        if (hubLogo.current)
+          hubLogo.current.style.transform = `rotate(${angle.current}deg)`;
         const tick = Math.floor((angle.current + step / 2) / step);
         if (tick !== lastTick) {
           tone(900, sound ? saved.settings.volume : 0, 0.025);
@@ -263,6 +266,8 @@ export default function App() {
       setReleasedPower(0);
       setError("");
       angle.current = 0;
+      if (wheel.current) wheel.current.style.transform = "rotate(0deg)";
+      if (hubLogo.current) hubLogo.current.style.transform = "rotate(0deg)";
       change("IDLE");
     } catch (e) {
       setError(String(e));
@@ -372,6 +377,7 @@ export default function App() {
             {state ? (
               <Wheel
                 ref={wheel}
+                hubLogoRef={hubLogo}
                 segments={result?.segments || state.segments}
                 prizes={state.prizes}
                 rotation={angle.current}

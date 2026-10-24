@@ -255,13 +255,21 @@ i {
   justify-content: center;
   gap: 8px;
 }
-.hub img {
-  width: 75%;
+.hub img,
+.hub-logo {
+  width: 58%;
+  height: 58%;
+  object-fit: contain;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.7));
 }
 .hub span {
   font-size: 7px;
+  font-weight: 700;
   letter-spacing: 2px;
   color: #ffd600;
+  user-select: none;
 }
 .phase-idle .hub {
   animation: breathe 3s ease-in-out infinite;

@@ -57,9 +57,10 @@ export const Wheel = forwardRef<
     progress: number;
     phase: Phase;
     winner?: number;
+    hubLogoRef?: React.Ref<HTMLImageElement>;
   }
 >(function Wheel(
-  { segments, prizes, rotation = 0, logo, progress, phase, winner },
+  { segments, prizes, rotation = 0, logo, progress, phase, winner, hubLogoRef },
   ref,
 ) {
   const n = segments.length;
@@ -187,8 +188,11 @@ export const Wheel = forwardRef<
       </svg>
       <div className="hub">
         <img
-          src={logo || `${import.meta.env.BASE_URL}assets/howell-white.png`}
+          ref={hubLogoRef}
+          className="hub-logo"
+          src={logo || `${import.meta.env.BASE_URL}assets/howell-hub-vortex.png`}
           alt="HOWELL"
+          style={{ transform: `rotate(${rotation}deg)` }}
         />
         <span>{phase === "READY" ? "FULL POWER" : "SPIN & WIN"}</span>
       </div>
