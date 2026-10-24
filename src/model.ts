@@ -7,6 +7,7 @@ export type Prize = {
   weight: number;
   image: string;
   icon: string;
+  sku?: string;
   wheelLines?: string[];
 };
 export type Spin = {
@@ -14,6 +15,7 @@ export type Spin = {
   sessionId: string;
   prizeId: string;
   prizeName: string;
+  sku?: string;
   image: string;
   icon: string;
   code: string;
@@ -46,7 +48,8 @@ export const initial = (): State => ({
     {
       id: "tws",
       name: "TWS HOWELL",
-      description: "Grand Prize Utama: TWS Howell HW01 (Rp 419.000)",
+      sku: "HW01",
+      description: "Grand Prize Utama: TWS Howell (Rp 419.000)",
       icon: "trophy",
       stock: 30,
       enabled: true,
@@ -67,18 +70,20 @@ export const initial = (): State => ({
     },
     {
       id: "earphone",
-      name: "EARPHONE HW03",
-      description: "Volume Winner: Earphone HW03 Howell (Rp 31.000)",
+      name: "EARPHONE KABEL",
+      sku: "HW03",
+      description: "Volume Winner: Earphone Kabel Howell (Rp 31.000)",
       icon: "headphones",
       stock: 250,
       enabled: true,
       weight: 25,
       image: `${import.meta.env.BASE_URL}assets/earphone.png`,
-      wheelLines: ["EARPHONE", "HW03"],
+      wheelLines: ["EARPHONE", "KABEL"],
     },
     {
       id: "hdmi",
       name: "KABEL HDMI 4K",
+      sku: "H0103",
       description: "Standard Tier: Kabel HDMI 4K Howell (Rp 37.000)",
       icon: "hdmi",
       stock: 150,
@@ -101,7 +106,8 @@ export const initial = (): State => ({
     {
       id: "cable",
       name: "KABEL DATA 4 IN 1",
-      description: "Mid Tier: Kabel multi-connector 4 in 1 AC01 Howell (Rp 126.000)",
+      sku: "AC01",
+      description: "Mid Tier: Kabel multi-connector 4 in 1 Howell (Rp 126.000)",
       icon: "cable",
       stock: 100,
       enabled: true,

@@ -14,7 +14,8 @@ export async function mutate(fn: (s: State) => void) {
     s.segments.length !== 7 ||
     !s.prizes?.some((p) => p.id === "tws") ||
     !s.prizes?.some((p) => p.id === "hdmi") ||
-    !s.prizes?.find((p) => p.id === "tws")?.image
+    !s.prizes?.find((p) => p.id === "tws")?.image ||
+    !s.prizes?.find((p) => p.id === "tws")?.sku
   ) {
     const init = initial();
     s.prizes = init.prizes;

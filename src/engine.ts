@@ -84,6 +84,7 @@ function reserveIndex(s: State, index: number): Spin {
     sessionId: s.session.id,
     prizeId: p.id,
     prizeName: p.name,
+    sku: p.sku,
     image: p.image,
     icon: p.icon,
     code,

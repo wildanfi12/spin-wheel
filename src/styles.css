@@ -560,20 +560,45 @@ dialog::backdrop {
 }
 .claim-code {
   border: 1px dashed #444;
-  padding: 15px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 22px 0;
+}
+.claim-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 24px 0;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
 }
-.claim-code small {
-  font-size: 9px;
+.claim-item small {
+  font-size: 10px;
   letter-spacing: 2px;
-  color: #aaa;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
 }
-.claim-code strong {
+.claim-item strong {
   font-family: monospace;
-  letter-spacing: 2px;
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  color: #fff;
+  white-space: nowrap;
+}
+.claim-item.claim-sku strong {
+  color: #ffd600;
+  font-weight: 700;
+}
+.claim-divider {
+  width: 1px;
+  height: 38px;
+  background: #333;
 }
 .primary {
   width: 100%;

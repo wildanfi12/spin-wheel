@@ -274,10 +274,16 @@ export default function App() {
     const cell = (s: string) =>
       '"' + (/^[=+@-]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"';
     const rows = [
-      ["Spin ID", "Hadiah", "Waktu Asia/Jakarta", "Status"],
+      ["Spin ID", "Hadiah", "SKU", "Waktu Asia/Jakarta", "Status"],
       ...[...state.spins]
         .reverse()
-        .map((r) => [r.code, r.prizeName, date(r.at), r.status]),
+        .map((r) => [
+          r.code,
+          r.prizeName,
+          r.sku || state.prizes.find((p) => p.id === r.prizeId)?.sku || "-",
+          date(r.at),
+          r.status,
+        ]),
     ];
     const url = URL.createObjectURL(
       new Blob(
@@ -522,9 +528,7 @@ export default function App() {
                 ? "🌟 GRAND PRIZE UTAMA 🌟"
                 : "CONGRATULATIONS!"}
             </div>
-            <h2 id="win-title">
-              YOU WON<span>&#10022;</span>
-            </h2>
+            <h2 id="win-title">YOU WON</h2>
             <div className="prize-hero">
               {result.image ? (
                 <img src={result.image} alt={result.prizeName} />
@@ -538,10 +542,27 @@ export default function App() {
                 ? "Selamat! Kamu berhasil memenangkan Grand Prize TWS HW01! Tunjukkan hasil ini kepada petugas booth HOWELL."
                 : "Tunjukkan hasil ini kepada petugas booth HOWELL."}
             </p>
-            <div className="claim-code">
-              <small>SPIN ID</small>
-              <strong>{result.code}</strong>
-            </div>
+            {(() => {
+              const prize = state?.prizes.find((p) => p.id === result.prizeId);
+              const sku = result.sku || prize?.sku;
+              return (
+                <div className="claim-code">
+                  <div className="claim-item">
+                    <small>SPIN ID</small>
+                    <strong>{result.code}</strong>
+                  </div>
+                  {sku && (
+                    <>
+                      <div className="claim-divider" />
+                      <div className="claim-item claim-sku">
+                        <small>SKU PRODUK</small>
+                        <strong>{sku}</strong>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             <button className="primary" onClick={() => void finish()}>
               SELESAI
             </button>
@@ -605,7 +626,14 @@ export default function App() {
                   <h3>{r.prizeName}</h3>
                   <p>{date(r.at)} WIB</p>
                   <small>
-                    {r.code} {r.status === "Voided" ? "· Dibatalkan" : ""}
+                    {r.code}
+                    {(() => {
+                      const sku =
+                        r.sku ||
+                        state?.prizes.find((p) => p.id === r.prizeId)?.sku;
+                      return sku ? ` · SKU: ${sku}` : "";
+                    })()}
+                    {r.status === "Voided" ? " · Dibatalkan" : ""}
                   </small>
                 </div>
               </article>
