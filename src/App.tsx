@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Volume2,
   VolumeX,
@@ -11,17 +11,26 @@ import {
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
-import { available, nearestAvailableIndex, reserveAt, transition } from "./engine";
+import { available, reserve, transition } from "./engine";
 import { read, mutate } from "./storage";
 import { tone, fanfare, chargingAudio } from "./audio";
-import { chargeAt, canRelease, powerDuration, powerRotationFor, powerSpin, spinEase, type Phase } from "./interaction";
+import {
+  chargeAt,
+  canRelease,
+  powerDuration,
+  powerRotationFor,
+  spinEase,
+  type Phase,
+} from "./interaction";
 import type { State, Spin } from "./model";
+
 const date = (at: string) =>
   new Intl.DateTimeFormat("id-ID", {
     timeZone: "Asia/Jakarta",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(at));
+
 export default function App() {
   const [state, setState] = useState<State>();
   const [phase, setPhase] = useState<Phase>("IDLE");
@@ -42,10 +51,12 @@ export default function App() {
     start = useRef(0),
     progressRef = useRef(0);
   const audio = useRef<ReturnType<typeof chargingAudio> | null>(null);
+
   const change = (next: Phase) => {
     phaseRef.current = next;
     setPhase(next);
   };
+
   const cancel = () => {
     if (!["CHARGING", "READY"].includes(phaseRef.current)) return;
     cancelAnimationFrame(frame.current);
@@ -56,6 +67,7 @@ export default function App() {
     setProgress(0);
     change("IDLE");
   };
+
   useEffect(() => {
     let active = true;
     void read()
@@ -86,14 +98,17 @@ export default function App() {
       document.removeEventListener("visibilitychange", hidden);
     };
   }, []);
+
   useEffect(() => {
     if (phase === "RESULT" && result) dialog.current?.showModal();
     else dialog.current?.close();
   }, [phase, result]);
+
   useEffect(() => {
     if (history) historyDialog.current?.showModal();
     else historyDialog.current?.close();
   }, [history]);
+
   function begin(source: string | number) {
     if (
       phaseRef.current !== "IDLE" ||
@@ -122,6 +137,7 @@ export default function App() {
     };
     frame.current = requestAnimationFrame(update);
   }
+
   function release(source: string | number) {
     if (held.current !== source) return;
     held.current = null;
@@ -136,6 +152,7 @@ export default function App() {
       void spin(power);
     } else cancel();
   }
+
   async function spin(power: number) {
     if (!canRelease(phaseRef.current) || !state) return;
     change("SPINNING");
@@ -143,32 +160,35 @@ export default function App() {
       let selected!: Spin;
       const previous = angle.current;
       const saved = await mutate((s) => {
-        const outcome = powerSpin(previous, power, s.segments.length);
-        const segment = nearestAvailableIndex(s, outcome.index);
-        selected = reserveAt(s, segment);
-        selected.rotation = powerRotationFor(
-          segment,
+        const randomVal =
+          crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+        selected = reserve(s, randomVal);
+        let rot = powerRotationFor(
+          selected.segment,
           selected.segments.length,
           previous,
           power,
         );
+        while (rot < previous + 360) {
+          rot += 360;
+        }
+        selected.rotation = rot;
       });
       setState(saved);
       setResult(selected);
       const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
       const duration = reduced ? 300 : powerDuration(power);
+      const count = selected.segments.length;
+      const step = 360 / count;
       let started = 0,
-        lastTick = Math.floor((previous + 18) / 36);
+        lastTick = Math.floor((previous + step / 2) / step);
       const animate = (now: number) => {
         started ||= now;
         const t = Math.min(1, (now - started) / duration);
         angle.current = previous + (selected.rotation - previous) * spinEase(t);
         if (wheel.current)
           wheel.current.style.transform = `rotate(${angle.current}deg)`;
-        const tick = Math.floor(
-          (angle.current + 180 / selected.segments.length) /
-            (360 / selected.segments.length),
-        );
+        const tick = Math.floor((angle.current + step / 2) / step);
         if (tick !== lastTick) {
           tone(900, sound ? saved.settings.volume : 0, 0.025);
           if (!reduced)
@@ -204,10 +224,10 @@ export default function App() {
             fanfare(sound ? saved.settings.volume : 0);
             if (!reduced)
               void confetti({
-                particleCount: 85,
-                spread: 85,
+                particleCount: selected.prizeId === "tws" ? 140 : 85,
+                spread: selected.prizeId === "tws" ? 100 : 85,
                 origin: { y: 0.58 },
-                colors: ["#FFD600", "#FFFFFF"],
+                colors: ["#FFD600", "#FFFFFF", "#FFA000"],
                 disableForReducedMotion: true,
               });
             change("RESULT");
@@ -224,6 +244,7 @@ export default function App() {
       change("IDLE");
     }
   }
+
   async function finish() {
     try {
       cancelAnimationFrame(frame.current);
@@ -247,6 +268,7 @@ export default function App() {
       setError(String(e));
     }
   }
+
   function csv() {
     if (!state) return;
     const cell = (s: string) =>
@@ -269,9 +291,11 @@ export default function App() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
   const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
   const displayedPower = busy ? releasedPower : progress;
   const spins = [...(state?.spins || [])].reverse();
+
   return (
     <div
       className={`app phase-${phase.toLowerCase()}`}
@@ -485,7 +509,11 @@ export default function App() {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", damping: 20, stiffness: 220 }}
           >
-            <div className="eyebrow">CONGRATULATIONS!</div>
+            <div className="eyebrow">
+              {result.prizeId === "tws"
+                ? "🌟 GRAND PRIZE UTAMA 🌟"
+                : "CONGRATULATIONS!"}
+            </div>
             <h2 id="win-title">
               YOU WON<span>&#10022;</span>
             </h2>
@@ -497,7 +525,11 @@ export default function App() {
               )}
             </div>
             <h3>{result.prizeName}</h3>
-            <p>Tunjukkan hasil ini kepada petugas booth HOWELL.</p>
+            <p>
+              {result.prizeId === "tws"
+                ? "Selamat! Kamu berhasil memenangkan Grand Prize TWS HW01! Tunjukkan hasil ini kepada petugas booth HOWELL."
+                : "Tunjukkan hasil ini kepada petugas booth HOWELL."}
+            </p>
             <div className="claim-code">
               <small>SPIN ID</small>
               <strong>{result.code}</strong>

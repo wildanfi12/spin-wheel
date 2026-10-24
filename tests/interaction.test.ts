@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { chargeAt, canRelease, powerDuration, powerSpin, spinEase } from "../src/interaction";
 import { initial } from "../src/model";
 import { select, pointerIndex, rotationFor } from "../src/engine";
@@ -12,15 +12,15 @@ describe("charge safety and fixed wheel", () => {
     expect(canRelease("READY")).toBe(true);
     expect(canRelease("SPINNING")).toBe(false);
   });
-  it("retains all ten segments when stock runs out", () => {
+  it("retains all twelve segments when stock runs out", () => {
     const s = initial();
     s.prizes[0].stock = 0;
     s.prizes[1].enabled = false;
     for (let i = 0; i < 1000; i++) {
       const r = select(s, i / 1000);
-      expect(r.segments).toHaveLength(10);
-      expect(["shirt", "discount"]).not.toContain(r.segments[r.index]);
-      expect(pointerIndex(rotationFor(r.index, 10, 2345), 10)).toBe(r.index);
+      expect(r.segments).toHaveLength(12);
+      expect(["tws", "umbrella"]).not.toContain(r.segments[r.index]);
+      expect(pointerIndex(rotationFor(r.index, 12, 2345), 12)).toBe(r.index);
     }
   });
   it("accelerates then settles monotonically without overshooting", () => {
@@ -35,12 +35,12 @@ describe("charge safety and fixed wheel", () => {
   });
   it("maps every hold percentage to an increasingly stronger precise spin", () => {
     const powers = [0.05, 0.1, 0.25, 0.5, 0.75, 1];
-    const outcomes = powers.map((p) => powerSpin(0, p, 10));
+    const outcomes = powers.map((p) => powerSpin(0, p, 12));
     const rotations = outcomes.map((outcome) => outcome.rotation);
     expect(rotations.every((v, i) => i === 0 || v > rotations[i - 1])).toBe(true);
     expect(powerDuration(0.05)).toBeLessThan(powerDuration(1));
     outcomes.forEach((outcome) =>
-      expect(pointerIndex(outcome.rotation, 10)).toBe(outcome.index),
+      expect(pointerIndex(outcome.rotation, 12)).toBe(outcome.index),
     );
     expect(rotations[0]).toBeGreaterThanOrEqual(72);
     expect(rotations[0]).toBeLessThanOrEqual(108);

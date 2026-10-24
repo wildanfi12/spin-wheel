@@ -9,6 +9,17 @@ export async function mutate(fn: (s: State) => void) {
   const d = await db;
   const tx = d.transaction("app", "readwrite");
   const s: State = (await tx.store.get("state")) || initial();
+  if (
+    !s.segments ||
+    s.segments.length !== 12 ||
+    !s.prizes?.some((p) => p.id === "tws") ||
+    !s.prizes?.some((p) => p.id === "hdmi")
+  ) {
+    const init = initial();
+    s.prizes = init.prizes;
+    s.segments = init.segments;
+    s.settings = init.settings;
+  }
   try {
     fn(s);
     validate(s);

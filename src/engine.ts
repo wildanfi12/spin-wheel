@@ -1,4 +1,4 @@
-﻿import type { State, Spin } from "./model";
+import type { State, Spin } from "./model";
 export const available = (s: State) =>
   s.segments.filter((id) =>
     s.prizes.some((p) => p.id === id && p.enabled && p.stock > 0),
@@ -9,9 +9,21 @@ export function select(s: State, random: number) {
   if (!eligible.length) throw Error("Semua hadiah habis. Hubungi petugas.");
   if (random < 0 || random >= 1 || !Number.isFinite(random))
     throw Error("Nilai acak tidak valid.");
-  const weights = segments.map((id) =>
-    eligible.includes(id) ? s.prizes.find((p) => p.id === id)!.weight : 0,
-  );
+
+  const segmentCounts: Record<string, number> = {};
+  for (const id of segments) {
+    if (eligible.includes(id)) {
+      segmentCounts[id] = (segmentCounts[id] || 0) + 1;
+    }
+  }
+
+  const weights = segments.map((id) => {
+    if (!eligible.includes(id)) return 0;
+    const p = s.prizes.find((p) => p.id === id)!;
+    const count = segmentCounts[id] || 1;
+    return p.weight / count;
+  });
+
   if (
     weights.some(
       (w, i) =>

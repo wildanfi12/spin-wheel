@@ -13,7 +13,7 @@ import {
 } from "../src/engine";
 import { mutate, restore, read } from "../src/storage";
 describe("probability and geometry", () => {
-  it("matches default 10/30/30/20/10 distribution", () => {
+  it("matches PDF specification 12-sector distribution (3/7/10/10/15/25/30)", () => {
     const s = initial(),
       counts: Record<string, number> = {};
     for (let i = 0; i < 10000; i++) {
@@ -22,16 +22,18 @@ describe("probability and geometry", () => {
       counts[id] = (counts[id] || 0) + 1;
     }
     expect(counts).toEqual({
-      shirt: 1000,
+      tws: 300,
       discount: 3000,
-      cable: 3000,
-      umbrella: 2000,
-      earphone: 1000,
+      earphone: 2500,
+      hdmi: 1500,
+      shirt: 1000,
+      cable: 1000,
+      umbrella: 700,
     });
   });
   it("uses weighted segment probabilities", () => {
     const s = initial();
-    s.prizes[0].weight = 9;
+    s.prizes[0].weight = 97;
     expect(select(s, 0.49).index).toBe(0);
     expect(select(s, 0.51).index).not.toBe(0);
   });
@@ -48,8 +50,8 @@ describe("probability and geometry", () => {
     const s = initial();
     s.prizes[0].stock = 0;
     s.prizes[1].enabled = false;
-    expect(available(s)).not.toContain("shirt");
-    expect(available(s)).not.toContain("discount");
+    expect(available(s)).not.toContain("tws");
+    expect(available(s)).not.toContain("umbrella");
     s.prizes.forEach((p) => (p.stock = 0));
     expect(() => select(s, 0.5)).toThrow();
   });
@@ -109,7 +111,7 @@ describe("inventory and session state machine", () => {
     expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
     const s = await read();
     expect(s.spins).toHaveLength(1);
-    expect(s.prizes[0].stock).toBe(99);
+    expect(s.prizes[0].stock).toBe(29);
     expect(s.session.spinId).toBe(s.spins[0].id);
   });
   it("rolls back failed configuration and rejects duplicate backups", async () => {

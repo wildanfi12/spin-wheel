@@ -1,7 +1,18 @@
-﻿import { forwardRef } from "react";
-import { Shirt, Ticket, Headphones, Usb, Umbrella, Gift } from "lucide-react";
+import { forwardRef } from "react";
+import {
+  Shirt,
+  Ticket,
+  Headphones,
+  Usb,
+  Umbrella,
+  Gift,
+  Trophy,
+  Tv,
+  Cable,
+} from "lucide-react";
 import type { Prize } from "./model";
 import type { Phase } from "./interaction";
+
 export function PrizeIcon({
   icon,
   size = 28,
@@ -15,12 +26,17 @@ export function PrizeIcon({
         shirt: Shirt,
         ticket: Ticket,
         headphones: Headphones,
-        cable: Usb,
+        cable: Cable,
+        usb: Usb,
         umbrella: Umbrella,
+        trophy: Trophy,
+        hdmi: Tv,
+        tv: Tv,
       } as Record<string, typeof Gift>
     )[icon] || Gift;
   return <Icon size={size} strokeWidth={1.5} />;
 }
+
 export const Wheel = forwardRef<
   SVGSVGElement,
   {
@@ -106,6 +122,10 @@ export const Wheel = forwardRef<
             a = ((i * angle - angle / 2 - 90) * Math.PI) / 180,
             b = ((i * angle + angle / 2 - 90) * Math.PI) / 180;
           const yellow = i % 2 === 0;
+          const lines =
+            p.wheelLines ||
+            (p.name.includes("\n") ? p.name.split("\n") : p.name.split(" "));
+          const hasLongLine = lines.some((l) => l.length > 8);
           return (
             <g key={i}>
               <path
@@ -121,13 +141,13 @@ export const Wheel = forwardRef<
               >
                 <text
                   x="300"
-                  y="86"
+                  y={lines.length > 2 ? 74 : 82}
                   textAnchor="middle"
-                  fontSize="13"
+                  fontSize={hasLongLine ? "11" : "12.5"}
                   fontWeight="800"
                 >
-                  {p.name.split(" ").map((w, j) => (
-                    <tspan key={j} x="300" dy={j ? 16 : 0}>
+                  {lines.map((w, j) => (
+                    <tspan key={j} x="300" dy={j ? 15 : 0}>
                       {w}
                     </tspan>
                   ))}
@@ -143,7 +163,7 @@ export const Wheel = forwardRef<
                 ) : (
                   <g
                     className="segment-icon"
-                    transform="translate(281 151)"
+                    transform="translate(281 148)"
                     aria-hidden="true"
                   >
                     <PrizeIcon icon={p.icon} size={38} />

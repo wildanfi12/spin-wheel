@@ -1,4 +1,4 @@
-﻿export type Prize = {
+export type Prize = {
   id: string;
   name: string;
   description: string;
@@ -7,6 +7,7 @@
   weight: number;
   image: string;
   icon: string;
+  wheelLines?: string[];
 };
 export type Spin = {
   id: string;
@@ -42,43 +43,97 @@ export type State = {
 export const initial = (): State => ({
   version: 1,
   prizes: [
-    ["shirt", "BAJU HOWELL", "Merchandise eksklusif HOWELL", "shirt"],
-    ["discount", "DISKON 20%", "Voucher pembelian produk HOWELL", "ticket"],
-    [
-      "cable",
-      "KABEL DATA HOWELL",
-      "Koneksi untuk aktivitas sehari-hari",
-      "cable",
-    ],
-    [
-      "umbrella",
-      "PAYUNG HOWELL",
-      "Teman perjalanan, hujan atau cerah",
-      "umbrella",
-    ],
-    ["earphone", "EARPHONE HOWELL", "Dengarkan setiap detail", "headphones"],
-  ].map(([id, name, description, icon]) => ({
-    id,
-    name,
-    description,
-    icon,
-    stock: 100,
-    enabled: true,
-    weight: 1,
-    image:
-      id === "earphone" ? `${import.meta.env.BASE_URL}assets/earphone.png` : "",
-  })),
+    {
+      id: "tws",
+      name: "TWS HW01",
+      description: "Grand Prize Utama: TWS HW01 Howell (Rp 419.000)",
+      icon: "trophy",
+      stock: 30,
+      enabled: true,
+      weight: 3,
+      image: "",
+      wheelLines: ["TWS", "HW01"],
+    },
+    {
+      id: "umbrella",
+      name: "PAYUNG HOWELL",
+      description: "Exclusive Souvenir: Payung eksklusif Howell",
+      icon: "umbrella",
+      stock: 70,
+      enabled: true,
+      weight: 7,
+      image: "",
+      wheelLines: ["PAYUNG", "HOWELL"],
+    },
+    {
+      id: "shirt",
+      name: "BAJU HOWELL",
+      description: "Merchandise eksklusif: Kaos / Baju Howell",
+      icon: "shirt",
+      stock: 100,
+      enabled: true,
+      weight: 10,
+      image: "",
+      wheelLines: ["BAJU", "HOWELL"],
+    },
+    {
+      id: "cable",
+      name: "KABEL DATA 4 IN 1 AC01",
+      description: "Mid Tier: Kabel multi-connector 4 in 1 AC01 Howell (Rp 126.000)",
+      icon: "cable",
+      stock: 100,
+      enabled: true,
+      weight: 10,
+      image: "",
+      wheelLines: ["KABEL DATA", "4 IN 1 AC01"],
+    },
+    {
+      id: "hdmi",
+      name: "KABEL HDMI 4K",
+      description: "Standard Tier: Kabel HDMI 4K Howell (Rp 37.000)",
+      icon: "hdmi",
+      stock: 150,
+      enabled: true,
+      weight: 15,
+      image: "",
+      wheelLines: ["KABEL", "HDMI 4K"],
+    },
+    {
+      id: "earphone",
+      name: "EARPHONE HW03",
+      description: "Volume Winner: Earphone HW03 Howell (Rp 31.000)",
+      icon: "headphones",
+      stock: 250,
+      enabled: true,
+      weight: 25,
+      image: `${import.meta.env.BASE_URL}assets/earphone.png`,
+      wheelLines: ["EARPHONE", "HW03"],
+    },
+    {
+      id: "discount",
+      name: "VOUCHER DISKON 20%",
+      description: "Direct Sales Driver: Voucher diskon belanja 20% produk Howell",
+      icon: "ticket",
+      stock: 300,
+      enabled: true,
+      weight: 30,
+      image: "",
+      wheelLines: ["VOUCHER", "DISKON 20%"],
+    },
+  ],
   segments: [
-    "shirt",
+    "tws",
     "discount",
-    "cable",
-    "umbrella",
+    "earphone",
+    "hdmi",
+    "shirt",
     "discount",
     "earphone",
     "cable",
     "umbrella",
+    "earphone",
+    "hdmi",
     "discount",
-    "cable",
   ],
   spins: [],
   session: { id: crypto.randomUUID() },
@@ -109,7 +164,7 @@ export function validate(s: State) {
     s.segments.length > 20 ||
     new Set(s.prizes.map((p) => p.id)).size !== s.prizes.length
   )
-    throw Error("Gunakan 2â€“20 segmen dan ID hadiah unik.");
+    throw Error("Gunakan 2–20 segmen dan ID hadiah unik.");
   for (const p of s.prizes)
     if (
       !p.id ||
