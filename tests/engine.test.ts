@@ -13,7 +13,7 @@ import {
 } from "../src/engine";
 import { mutate, restore, read } from "../src/storage";
 describe("probability and geometry", () => {
-  it("matches PDF specification 12-sector distribution (3/7/10/10/15/25/30)", () => {
+  it("matches 7-sector distribution (3/30/25/15/10/10/7)", () => {
     const s = initial(),
       counts: Record<string, number> = {};
     for (let i = 0; i < 10000; i++) {
@@ -51,7 +51,7 @@ describe("probability and geometry", () => {
     s.prizes[0].stock = 0;
     s.prizes[1].enabled = false;
     expect(available(s)).not.toContain("tws");
-    expect(available(s)).not.toContain("umbrella");
+    expect(available(s)).not.toContain("discount");
     s.prizes.forEach((p) => (p.stock = 0));
     expect(() => select(s, 0.5)).toThrow();
   });

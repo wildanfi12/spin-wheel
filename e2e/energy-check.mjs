@@ -13,11 +13,11 @@ const charge = page.locator(".charge-button");
 await charge.waitFor();
 await page.waitForFunction(() => !document.querySelector(".charge-button").disabled);
 assert.equal(await page.locator(".wheel-disc foreignObject").count(), 0);
-assert.equal(await page.locator(".wheel-disc image").count(), 12);
+assert.equal(await page.locator(".wheel-disc image").count(), 7);
 
 const energy = () => page.locator(".energy-number").evaluate((node) => parseInt(node.textContent, 10));
 const rotation = () => page.locator(".wheel-disc").evaluate((node) => Number(node.style.transform.match(/rotate\((.*)deg\)/)?.[1] || 0));
-const pointerIndex = (angle) => Math.round(((360 - (angle % 360)) % 360) / 30) % 12;
+const pointerIndex = (angle) => Math.round(((360 - (angle % 360)) % 360) / (360 / 7)) % 7;
 
 async function hold(ms) {
   const box = await charge.boundingBox();

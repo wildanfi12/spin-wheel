@@ -11,7 +11,7 @@ export async function mutate(fn: (s: State) => void) {
   const s: State = (await tx.store.get("state")) || initial();
   if (
     !s.segments ||
-    s.segments.length !== 12 ||
+    s.segments.length !== 7 ||
     !s.prizes?.some((p) => p.id === "tws") ||
     !s.prizes?.some((p) => p.id === "hdmi") ||
     !s.prizes?.find((p) => p.id === "tws")?.image

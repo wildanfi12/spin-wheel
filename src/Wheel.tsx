@@ -37,6 +37,16 @@ export function PrizeIcon({
   return <Icon size={size} strokeWidth={1.5} />;
 }
 
+const sectorColors = [
+  "#FFD600", // 0: TWS HOWELL (Howell Yellow)
+  "#FFFFFF", // 1: VOUCHER DISKON 20% (White)
+  "#FFD600", // 2: EARPHONE HW03 (Howell Yellow)
+  "#FFFFFF", // 3: KABEL HDMI 4K (White)
+  "#FFD600", // 4: BAJU HOWELL (Howell Yellow)
+  "#FFFFFF", // 5: KABEL DATA 4 IN 1 (White)
+  "#FFB800", // 6: PAYUNG HOWELL (Warm Gold)
+];
+
 export const Wheel = forwardRef<
   SVGSVGElement,
   {
@@ -121,19 +131,19 @@ export const Wheel = forwardRef<
           const angle = 360 / n,
             a = ((i * angle - angle / 2 - 90) * Math.PI) / 180,
             b = ((i * angle + angle / 2 - 90) * Math.PI) / 180;
-          const yellow = i % 2 === 0;
+          const fillColor = sectorColors[i % sectorColors.length];
           const lines =
             p.wheelLines ||
             (p.name.includes("\n") ? p.name.split("\n") : p.name.split(" "));
-          const hasLongLine = lines.some((l) => l.length > 8);
+          const hasLongLine = lines.some((l) => l.length > 9);
           return (
             <g key={i}>
               <path
                 className={winner === i ? "winning-segment" : ""}
                 d={`M300 300 L${300 + 264 * Math.cos(a)} ${300 + 264 * Math.sin(a)} A264 264 0 ${angle > 180 ? 1 : 0} 1 ${300 + 264 * Math.cos(b)} ${300 + 264 * Math.sin(b)} Z`}
-                fill={yellow ? "#FFD600" : "#FFFFFF"}
+                fill={fillColor}
                 stroke="#9f8b2e"
-                strokeWidth="1"
+                strokeWidth="1.5"
               />
               <g
                 transform={`rotate(${i * angle} 300 300)`}
@@ -141,13 +151,13 @@ export const Wheel = forwardRef<
               >
                 <text
                   x="300"
-                  y={lines.length > 2 ? 74 : 80}
+                  y={lines.length > 2 ? 72 : 78}
                   textAnchor="middle"
-                  fontSize={hasLongLine ? "11" : "12.5"}
+                  fontSize={hasLongLine ? "12" : "13.5"}
                   fontWeight="800"
                 >
                   {lines.map((w, j) => (
-                    <tspan key={j} x="300" dy={j ? 15 : 0}>
+                    <tspan key={j} x="300" dy={j ? 16 : 0}>
                       {w}
                     </tspan>
                   ))}
@@ -155,19 +165,19 @@ export const Wheel = forwardRef<
                 {p.image ? (
                   <image
                     href={p.image}
-                    x="274"
-                    y="140"
-                    width="52"
-                    height="52"
+                    x="270"
+                    y="134"
+                    width="60"
+                    height="60"
                     preserveAspectRatio="xMidYMid meet"
                   />
                 ) : (
                   <g
                     className="segment-icon"
-                    transform="translate(281 148)"
+                    transform="translate(280 144)"
                     aria-hidden="true"
                   >
-                    <PrizeIcon icon={p.icon} size={38} />
+                    <PrizeIcon icon={p.icon} size={40} />
                   </g>
                 )}
               </g>
