@@ -13,7 +13,7 @@ const charge = page.locator(".charge-button");
 await charge.waitFor();
 await page.waitForFunction(() => !document.querySelector(".charge-button").disabled);
 assert.equal(await page.locator(".wheel-disc foreignObject").count(), 0);
-assert.equal(await page.locator(".wheel-disc .segment-icon").count(), 9);
+assert.equal(await page.locator(".wheel-disc image").count(), 12);
 
 const energy = () => page.locator(".energy-number").evaluate((node) => parseInt(node.textContent, 10));
 const rotation = () => page.locator(".wheel-disc").evaluate((node) => Number(node.style.transform.match(/rotate\((.*)deg\)/)?.[1] || 0));

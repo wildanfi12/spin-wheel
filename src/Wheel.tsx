@@ -141,7 +141,7 @@ export const Wheel = forwardRef<
               >
                 <text
                   x="300"
-                  y={lines.length > 2 ? 74 : 82}
+                  y={lines.length > 2 ? 74 : 80}
                   textAnchor="middle"
                   fontSize={hasLongLine ? "11" : "12.5"}
                   fontWeight="800"
@@ -155,10 +155,11 @@ export const Wheel = forwardRef<
                 {p.image ? (
                   <image
                     href={p.image}
-                    x="276"
-                    y="145"
-                    width="48"
-                    height="48"
+                    x="274"
+                    y="140"
+                    width="52"
+                    height="52"
+                    preserveAspectRatio="xMidYMid meet"
                   />
                 ) : (
                   <g

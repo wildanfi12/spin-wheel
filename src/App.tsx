@@ -481,7 +481,15 @@ export default function App() {
         <div className="prize-strip">
           {state?.prizes.map((p) => (
             <div key={p.id}>
-              <PrizeIcon icon={p.icon} size={22} />
+              {p.image ? (
+                <img
+                  src={p.image}
+                  alt=""
+                  style={{ width: 22, height: 22, objectFit: "contain" }}
+                />
+              ) : (
+                <PrizeIcon icon={p.icon} size={22} />
+              )}
               <span>{p.name}</span>
             </div>
           ))}

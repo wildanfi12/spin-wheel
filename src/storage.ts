@@ -13,7 +13,8 @@ export async function mutate(fn: (s: State) => void) {
     !s.segments ||
     s.segments.length !== 12 ||
     !s.prizes?.some((p) => p.id === "tws") ||
-    !s.prizes?.some((p) => p.id === "hdmi")
+    !s.prizes?.some((p) => p.id === "hdmi") ||
+    !s.prizes?.find((p) => p.id === "tws")?.image
   ) {
     const init = initial();
     s.prizes = init.prizes;
