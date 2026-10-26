@@ -172,20 +172,16 @@ export const BASE_PRIZES: BackendPrize[] = [
   },
 ];
 
-export const WHEEL_12_SEGMENTS: string[] = [
+export const WHEEL_7_SEGMENTS: string[] = [
   "tws", // 0
   "discount", // 1
   "earphone", // 2
   "hdmi", // 3
   "shirt", // 4
-  "discount", // 5
-  "earphone", // 6
-  "cable", // 7
-  "umbrella", // 8
-  "earphone", // 9
-  "hdmi", // 10
-  "discount", // 11
+  "cable", // 5
+  "umbrella", // 6
 ];
+export const WHEEL_12_SEGMENTS = WHEEL_7_SEGMENTS;
 
 export class BackendEngine {
   private state: BackendState;
@@ -206,7 +202,7 @@ export class BackendEngine {
       return {
         version: 1,
         prizes: override.prizes,
-        segments: override.segments || [...WHEEL_12_SEGMENTS],
+        segments: override.segments || [...WHEEL_7_SEGMENTS],
         spins: override.spins || [],
         dailyTwsClaims: override.dailyTwsClaims || {},
       };
@@ -217,6 +213,9 @@ export class BackendEngine {
         const raw = fs.readFileSync(this.dbPath, "utf-8");
         const parsed = JSON.parse(raw);
         if (parsed.version === 1 && Array.isArray(parsed.prizes)) {
+          if (!parsed.segments || parsed.segments.length !== 7) {
+            parsed.segments = [...WHEEL_7_SEGMENTS];
+          }
           // Re-populate processedRequests cache from saved spins
           if (Array.isArray(parsed.spins)) {
             for (const spin of parsed.spins) {
@@ -235,7 +234,7 @@ export class BackendEngine {
     return {
       version: 1,
       prizes: JSON.parse(JSON.stringify(BASE_PRIZES)),
-      segments: [...WHEEL_12_SEGMENTS],
+      segments: [...WHEEL_7_SEGMENTS],
       spins: [],
       dailyTwsClaims: {},
     };
@@ -587,7 +586,7 @@ export class BackendEngine {
       this.state = {
         version: 1,
         prizes: JSON.parse(JSON.stringify(BASE_PRIZES)),
-        segments: [...WHEEL_12_SEGMENTS],
+        segments: [...WHEEL_7_SEGMENTS],
         spins: [],
         dailyTwsClaims: {},
       };

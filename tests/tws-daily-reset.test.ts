@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { BackendEngine, BASE_PRIZES, WHEEL_12_SEGMENTS } from "../server/backendEngine";
+import { BackendEngine, BASE_PRIZES, WHEEL_7_SEGMENTS } from "../server/backendEngine";
 import { getWibDate } from "../src/timezone";
 
 describe("TWS HW01 Daily Limit & 00.00 WIB Reset Specification (12 Test Cases)", () => {
@@ -10,7 +10,7 @@ describe("TWS HW01 Daily Limit & 00.00 WIB Reset Specification (12 Test Cases)",
     engine = new BackendEngine(undefined, {
       version: 1,
       prizes: JSON.parse(JSON.stringify(BASE_PRIZES)),
-      segments: [...WHEEL_12_SEGMENTS],
+      segments: [...WHEEL_7_SEGMENTS],
       spins: [],
       dailyTwsClaims: {},
     });
@@ -41,7 +41,7 @@ describe("TWS HW01 Daily Limit & 00.00 WIB Reset Specification (12 Test Cases)",
 
     expect(outcome.spin.prizeId).toBe("tws");
     expect(outcome.spin.sku).toBe("HW01");
-    expect(outcome.spin.segment).toBe(0); // Sektor 0 pada roda 12 sektor
+    expect(outcome.spin.segment).toBe(0); // Sektor 0 pada roda 7 sektor
 
     const status = engine.getAdminStatus(winTime);
     expect(status.twsWinnersToday).toBe(1);

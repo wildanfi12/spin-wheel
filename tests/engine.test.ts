@@ -129,7 +129,8 @@ describe("inventory and session state machine", () => {
   it("completes ten consecutive sessions with one history row each", () => {
     const s = initial();
     for (let i = 0; i < 10; i++) {
-      const r = reserveAt(s, i % s.segments.length);
+      const segIndex = i === 0 ? 0 : 1 + ((i - 1) % (s.segments.length - 1));
+      const r = reserveAt(s, segIndex);
       transition(s, r.id, "Pending Claim");
       s.session = { id: crypto.randomUUID() };
     }

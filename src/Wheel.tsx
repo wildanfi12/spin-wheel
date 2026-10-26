@@ -43,13 +43,8 @@ const sectorColors = [
   "#FFD600", // 2: EARPHONE HW03 (Howell Yellow)
   "#FFFFFF", // 3: KABEL HDMI 4K (White)
   "#FFD600", // 4: BAJU HOWELL (Howell Yellow)
-  "#FFFFFF", // 5: VOUCHER DISKON 20% (White)
-  "#FFD600", // 6: EARPHONE HW03 (Howell Yellow)
-  "#FFFFFF", // 7: KABEL DATA 4 IN 1 AC01 (White)
-  "#FFD600", // 8: PAYUNG HOWELL (Howell Yellow)
-  "#FFFFFF", // 9: EARPHONE HW03 (White)
-  "#FFD600", // 10: KABEL HDMI 4K (Howell Yellow)
-  "#FFFFFF", // 11: VOUCHER DISKON 20% (White)
+  "#FFFFFF", // 5: KABEL DATA 4 IN 1 (White)
+  "#FFB800", // 6: PAYUNG HOWELL (Warm Gold)
 ];
 
 export const Wheel = forwardRef<
@@ -159,11 +154,11 @@ export const Wheel = forwardRef<
                   x="300"
                   y={lines.length > 2 ? 72 : 78}
                   textAnchor="middle"
-                  fontSize={hasLongLine ? "11" : "12.5"}
+                  fontSize={hasLongLine ? "12" : "13.5"}
                   fontWeight="800"
                 >
                   {lines.map((w, j) => (
-                    <tspan key={j} x="300" dy={j ? 15 : 0}>
+                    <tspan key={j} x="300" dy={j ? 16 : 0}>
                       {w}
                     </tspan>
                   ))}
@@ -171,10 +166,10 @@ export const Wheel = forwardRef<
                 {p.image ? (
                   <image
                     href={p.image}
-                    x="272"
-                    y="136"
-                    width="56"
-                    height="56"
+                    x="270"
+                    y="134"
+                    width="60"
+                    height="60"
                     preserveAspectRatio="xMidYMid meet"
                   />
                 ) : (
@@ -183,7 +178,7 @@ export const Wheel = forwardRef<
                     transform="translate(280 144)"
                     aria-hidden="true"
                   >
-                    <PrizeIcon icon={p.icon} size={38} />
+                    <PrizeIcon icon={p.icon} size={40} />
                   </g>
                 )}
               </g>
