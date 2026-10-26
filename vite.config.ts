@@ -5,7 +5,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import { createSpinWheelApiMiddleware } from "./server/apiMiddleware";
 
 export default defineConfig({
-  base: "/spin-wheel/",
+  base: "/",
   plugins: [
     {
       name: "spin-wheel-backend-api",
@@ -40,7 +40,7 @@ export default defineConfig({
         theme_color: "#FFD600",
         background_color: "#111111",
         display: "standalone",
-        start_url: "/spin-wheel/",
+        start_url: "/",
         icons: [{ src: "assets/icon.png", sizes: "any", type: "image/png" }],
       },
       workbox: {
