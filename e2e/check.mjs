@@ -8,6 +8,8 @@ page.on("console", (m) => {
   if (m.type() === "error") errors.push(m.text());
 });
 await page.goto("http://127.0.0.1:5173/spin-wheel/");
+await page.locator(".wheel-disc path").first().waitFor();
+assert.equal(await page.locator(".wheel-disc path").count(), 6);
 const charge = page.locator(".charge-button");
 await charge.waitFor();
 await page.waitForFunction(
@@ -50,12 +52,17 @@ const r = saved.spins[0];
 const angle = await page
   .locator(".wheel-disc")
   .evaluate((el) => Number(el.style.transform.match(/rotate\((.*)deg\)/)[1]));
-assert.equal(Math.round(((360 - (angle % 360)) % 360) / 36) % 10, r.segment);
+assert.equal(Math.round(((360 - (angle % 360)) % 360) / 60) % 6, r.segment);
 await page.screenshot({ path: "../winning-preview.png", fullPage: true });
 await page.getByRole("button", { name: "SELESAI" }).click();
 await page.waitForFunction(() =>
   document.querySelector(".app").classList.contains("phase-idle"),
 );
+await page.getByRole("button", { name: "ADMIN" }).click();
+await page.locator(".admin-dialog").waitFor({ state: "visible" });
+assert.equal(await page.locator(".inventory-table tbody tr").count(), 6);
+assert.match(await page.locator(".admin-dialog").innerText(), /Stok Hadiah Harian/);
+await page.getByRole("button", { name: "Tutup dashboard" }).click();
 await page.reload();
 await page.getByRole("button", { name: "HISTORY" }).click();
 assert.match(
@@ -84,6 +91,10 @@ assert.equal(
 );
 const wheel = await page.locator(".wheel-shell").boundingBox();
 assert.ok(wheel.x >= 0 && wheel.x + wheel.width <= 390);
+await page.getByRole("button", { name: "ADMIN" }).click();
+await page.locator(".admin-dialog").waitFor({ state: "visible" });
+assert.equal(await page.locator(".inventory-table tbody tr").count(), 6);
+await page.getByRole("button", { name: "Tutup dashboard" }).click();
 await page.getByRole("button", { name: "HISTORY" }).click();
 await page.screenshot({ path: "../history-preview.png", fullPage: true });
 const downloadPromise = page.waitForEvent("download");

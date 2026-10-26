@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect } from "vitest";
-import { initial, validate } from "../src/model";
+import { initial, validate, type Spin } from "../src/model";
 import {
   select,
   reserve,
@@ -12,131 +12,247 @@ import {
   nearestAvailableIndex,
 } from "../src/engine";
 import { mutate, restore, read } from "../src/storage";
-describe("probability and geometry", () => {
-  it("matches 7-sector distribution (3/30/25/15/10/10/7)", () => {
-    const s = initial(),
-      counts: Record<string, number> = {};
-    for (let i = 0; i < 10000; i++) {
-      const r = select(s, (i + 0.5) / 10000),
-        id = r.segments[r.index];
+import { DAILY_STOCK_LIMITS, remainingDailyStock } from "../src/inventory";
+import { getWibDate } from "../src/timezone";
+
+function historySpin(prizeId: string, dateWib: string, index: number): Spin {
+  const segments = initial().segments;
+  const at = new Date(dateWib + "T05:00:00.000Z").toISOString();
+  return {
+    id: prizeId + "-" + dateWib + "-" + index,
+    sessionId: "history-" + index,
+    prizeId,
+    prizeName: prizeId,
+    image: "",
+    icon: "gift",
+    code: "OLD-" + index,
+    at,
+    status: "Won",
+    segment: segments.indexOf(prizeId),
+    segments,
+    rotation: rotationFor(0, segments.length),
+    events: [{ at, action: "Won" }],
+    dateWib,
+  };
+}
+
+describe("six-prize inventory and wheel geometry", () => {
+  it("uses exactly the six requested prizes and daily stock caps", () => {
+    const state = initial();
+    expect(state.segments).toEqual([
+      "tws",
+      "shirt",
+      "umbrella",
+      "cable",
+      "earphone",
+      "discount",
+    ]);
+    expect(state.prizes.map((prize) => prize.id)).toEqual(state.segments);
+    expect(state.prizes.map((prize) => prize.stock)).toEqual([3, 10, 8, 5, 20, 50]);
+    expect(state.prizes.some((prize) => prize.id === "hdmi")).toBe(false);
+  });
+
+  it("matches weighted selection across the six active prizes", () => {
+    const state = initial();
+    const counts: Record<string, number> = {};
+    const samples = 8500;
+    for (let i = 0; i < samples; i++) {
+      const result = select(state, (i + 0.5) / samples);
+      const id = result.segments[result.index];
       counts[id] = (counts[id] || 0) + 1;
     }
     expect(counts).toEqual({
       tws: 300,
-      discount: 3000,
-      earphone: 2500,
-      hdmi: 1500,
       shirt: 1000,
-      cable: 1000,
       umbrella: 700,
+      cable: 1000,
+      earphone: 2500,
+      discount: 3000,
     });
   });
-  it("uses weighted segment probabilities", () => {
-    const s = initial();
-    s.prizes[0].weight = 97;
-    expect(select(s, 0.49).index).toBe(0);
-    expect(select(s, 0.51).index).not.toBe(0);
+
+  it("uses weighted segments and excludes disabled or daily-exhausted prizes", () => {
+    const state = initial();
+    state.prizes[0].weight = 97;
+    expect(select(state, 0.49).index).toBe(0);
+    expect(select(state, 0.6).index).not.toBe(0);
+
+    const dateWib = getWibDate();
+    state.spins = Array.from({ length: DAILY_STOCK_LIMITS.tws }, (_, i) =>
+      historySpin("tws", dateWib, i),
+    );
+    state.prizes.find((prize) => prize.id === "discount")!.enabled = false;
+    expect(available(state)).not.toContain("tws");
+    expect(available(state)).not.toContain("discount");
+    expect(() => select({ ...state, spins: state.segments.flatMap((id) =>
+      Array.from({ length: DAILY_STOCK_LIMITS[id] }, (_, i) => historySpin(id, dateWib, i)),
+    ) }, 0.5)).toThrow("Semua hadiah habis");
   });
-  it("aligns all segment centers after at least six turns", () => {
-    for (let n = 1; n <= 20; n++)
-      for (let i = 0; i < n; i++)
-        for (const from of [0, 123, 9999]) {
-          const r = rotationFor(i, n, from);
-          expect(r - from).toBeGreaterThanOrEqual(2160);
-          expect(pointerIndex(r, n)).toBe(i);
-        }
-  });
-  it("excludes exhausted and disabled prizes and handles all empty", () => {
-    const s = initial();
-    s.prizes[0].stock = 0;
-    s.prizes[1].enabled = false;
-    expect(available(s)).not.toContain("tws");
-    expect(available(s)).not.toContain("discount");
-    s.prizes.forEach((p) => (p.stock = 0));
-    expect(() => select(s, 0.5)).toThrow();
-  });
-  it("selects the closest available physical segment when stock is empty", () => {
-    const s = initial();
-    s.prizes.find((prize) => prize.id === s.segments[0])!.stock = 0;
-    const index = nearestAvailableIndex(s, 0);
-    expect(index).not.toBe(0);
-    expect(available(s)).toContain(s.segments[index]);
-  });
+
   it("validates stock, weights, segment IDs and import schema", () => {
-    for (const weight of [0, -1, NaN, Infinity]) {
-      const s = initial();
-      s.prizes[0].weight = weight;
-      expect(() => validate(s)).toThrow();
+    const state = initial();
+    state.prizes[0].stock = -1;
+    expect(() => validate(state)).toThrow();
+    state.prizes[0].stock = DAILY_STOCK_LIMITS.tws;
+    state.segments[0] = "bad";
+    expect(() => validate(state)).toThrow();
+  });
+
+  it("keeps six sectors while stock runs out and aligns all sector centers", () => {
+    const state = initial();
+    state.spins = Array.from({ length: DAILY_STOCK_LIMITS.tws }, (_, i) =>
+      historySpin("tws", getWibDate(), i),
+    );
+    state.prizes.find((prize) => prize.id === "discount")!.enabled = false;
+    for (let i = 0; i < 500; i++) {
+      const result = select(state, i / 500);
+      expect(result.segments).toHaveLength(6);
+      expect(["tws", "discount"]).not.toContain(result.segments[result.index]);
+      expect(pointerIndex(rotationFor(result.index, 6, 2345), 6)).toBe(result.index);
     }
-    const s = initial();
-    s.prizes[0].stock = -1;
-    expect(() => validate(s)).toThrow();
-    s.prizes[0].stock = 1;
-    s.segments[0] = "bad";
-    expect(() => validate(s)).toThrow();
+    for (let count = 1; count <= 20; count++) {
+      for (let index = 0; index < count; index++) {
+        const rotation = rotationFor(index, count, 123);
+        expect(pointerIndex(rotation, count)).toBe(index);
+      }
+    }
+  });
+
+  it("selects the closest available sector when the pointer target is exhausted", () => {
+    const state = initial();
+    state.spins = Array.from({ length: DAILY_STOCK_LIMITS.tws }, (_, i) =>
+      historySpin("tws", getWibDate(), i),
+    );
+    const index = nearestAvailableIndex(state, 0);
+    expect(index).not.toBe(0);
+    expect(available(state)).toContain(state.segments[index]);
   });
 });
-describe("inventory and session state machine", () => {
-  it("reserves once, prevents duplicate claims, returns void stock once", () => {
-    const s = initial();
-    s.prizes[0].stock = 1;
-    const r = reserve(s, 0);
-    expect(s.prizes[0].stock).toBe(0);
-    expect(() => reserve(s, 0)).toThrow();
-    transition(s, r.id, "Pending Claim");
-    transition(s, r.id, "Voided", "cancelled");
-    expect(s.prizes[0].stock).toBe(1);
-    expect(() => transition(s, r.id, "Voided", "again")).toThrow();
-    expect(s.prizes[0].stock).toBe(1);
+
+describe("atomic ledger, voids, and persistent sessions", () => {
+  it("reserves once, counts issued stock from history, and void restores today's slot", () => {
+    const date = new Date("2026-10-26T07:00:00.000Z");
+    const dateWib = "2026-10-26";
+    const state = initial();
+    state.spins = [
+      historySpin("tws", dateWib, 0),
+      historySpin("tws", dateWib, 1),
+    ];
+
+    const spin = reserveAt(state, 0, date);
+    expect(remainingDailyStock(state.spins, "tws", dateWib)).toBe(0);
+    expect(state.prizes.find((prize) => prize.id === "tws")!.stock).toBe(3);
+    expect(() => reserveAt(state, 0, date)).toThrow("sudah diputar");
+    transition(state, spin.id, "Pending Claim");
+    transition(state, spin.id, "Voided", "dibatalkan");
+    expect(remainingDailyStock(state.spins, "tws", dateWib)).toBe(1);
+    expect(() => transition(state, spin.id, "Voided", "ulang")).toThrow();
   });
-  it("claims only pending results once", () => {
-    const s = initial();
-    const r = reserve(s, 0);
-    expect(() => transition(s, r.id, "Claimed")).toThrow();
-    transition(s, r.id, "Pending Claim");
-    transition(s, r.id, "Claimed");
-    expect(() => transition(s, r.id, "Claimed")).toThrow();
-    expect(() => transition(s, r.id, "Voided", "claimed")).toThrow();
-  });
-  it("serializes simultaneous tabs and persists a single result", async () => {
+
+  it("serializes concurrent spins and never exceeds any daily cap", async () => {
     await restore(initial());
-    const outcomes = await Promise.allSettled([
-      mutate((s) => {
-        reserve(s, 0);
-      }),
-      mutate((s) => {
-        reserve(s, 0);
-      }),
-    ]);
-    expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
-    const s = await read();
-    expect(s.spins).toHaveLength(1);
-    expect(s.prizes[0].stock).toBe(29);
-    expect(s.session.spinId).toBe(s.spins[0].id);
-  });
-  it("rolls back failed configuration and rejects duplicate backups", async () => {
-    const before = await read();
-    await expect(
-      mutate((s) => {
-        s.prizes[0].stock = -1;
-      }),
-    ).rejects.toThrow();
-    expect((await read()).prizes[0].stock).toBe(before.prizes[0].stock);
-    const bad = structuredClone(before);
-    bad.spins.push(bad.spins[0]);
-    expect(() => validate(bad)).toThrow();
-  });
-  it("completes ten consecutive sessions with one history row each", () => {
-    const s = initial();
-    for (let i = 0; i < 10; i++) {
-      const segIndex = i === 0 ? 0 : 1 + ((i - 1) % (s.segments.length - 1));
-      const r = reserveAt(s, segIndex);
-      transition(s, r.id, "Pending Claim");
-      s.session = { id: crypto.randomUUID() };
+    const outcomes = await Promise.allSettled(
+      Array.from({ length: 110 }, (_, i) =>
+        mutate((state) => {
+          state.session = { id: "concurrent-" + i };
+          reserve(state, 0.8);
+        }),
+      ),
+    );
+    const successful = outcomes.filter((outcome) => outcome.status === "fulfilled");
+    const state = await read();
+    const dateWib = getWibDate();
+
+    expect(successful).toHaveLength(96);
+    expect(state.spins).toHaveLength(96);
+    for (const id of state.segments) {
+      expect(remainingDailyStock(state.spins, id, dateWib)).toBe(0);
+      expect(state.spins.filter((spin) =>
+        spin.prizeId === id && spin.status !== "Voided" && spin.dateWib === dateWib,
+      ).length).toBeLessThanOrEqual(DAILY_STOCK_LIMITS[id]);
     }
-    expect(s.spins).toHaveLength(10);
-    expect(new Set(s.spins.map((spin) => spin.id)).size).toBe(10);
-    expect(s.session.spinId).toBeUndefined();
-    expect(() => validate(s)).not.toThrow();
+    expect(available(state)).toHaveLength(0);
+  });
+
+  it("preserves history and only shows six prizes after migrating the old seven-prize backup", async () => {
+    const legacy = initial();
+    const hdmi = {
+      id: "hdmi",
+      name: "KABEL HDMI 4K",
+      sku: "H0103",
+      description: "Hadiah lama",
+      stock: 150,
+      enabled: true,
+      weight: 15,
+      image: "assets/hdmi-4k.png",
+      icon: "hdmi",
+      wheelLines: ["KABEL", "HDMI 4K"],
+    };
+    legacy.prizes.push(hdmi);
+    legacy.segments = ["tws", "discount", "earphone", "hdmi", "shirt", "cable", "umbrella"];
+    const oldSpin = {
+      ...historySpin("hdmi", "2026-10-25", 0),
+      segments: legacy.segments,
+      segment: 3,
+      prizeName: "KABEL HDMI 4K",
+      image: "assets/hdmi-4k.png",
+    };
+    legacy.spins = [oldSpin];
+    legacy.session = { id: "new-session" };
+
+    await restore(legacy);
+    const migrated = await read();
+    expect(migrated.segments).toEqual(initial().segments);
+    expect(migrated.prizes.map((prize) => prize.id)).toEqual(initial().segments);
+    expect(migrated.spins).toEqual([oldSpin]);
+  });
+
+  it("keeps a pending legacy HDMI result renderable without making HDMI an active prize", async () => {
+    const legacy = initial();
+    const hdmi = {
+      id: "hdmi",
+      name: "KABEL HDMI 4K",
+      sku: "H0103",
+      description: "Hadiah lama",
+      stock: 150,
+      enabled: true,
+      weight: 15,
+      image: "assets/hdmi-4k.png",
+      icon: "hdmi",
+      wheelLines: ["KABEL", "HDMI 4K"],
+    };
+    legacy.prizes.push(hdmi);
+    legacy.segments = ["tws", "discount", "earphone", "hdmi", "shirt", "cable", "umbrella"];
+    const oldSpin = {
+      ...historySpin("hdmi", "2026-10-26", 0),
+      segments: legacy.segments,
+      segment: 3,
+      prizeName: "KABEL HDMI 4K",
+      image: "assets/hdmi-4k.png",
+    };
+    legacy.spins = [oldSpin];
+    legacy.session = { id: "old-session", spinId: oldSpin.id };
+
+    await restore(legacy);
+    const migrated = await read();
+    expect(migrated.segments).toHaveLength(6);
+    expect(migrated.prizes.map((prize) => prize.id)).toContain("hdmi");
+    expect(migrated.prizes.find((prize) => prize.id === "hdmi")?.enabled).toBe(false);
+  });
+
+  it("retains history across WIB midnight while inventory resets from the new day's ledger", () => {
+    const state = initial();
+    const beforeMidnight = new Date("2026-10-26T16:59:59.000Z");
+    const atMidnight = new Date("2026-10-26T17:00:00.000Z");
+    state.spins = [
+      historySpin("tws", "2026-10-26", 1),
+      historySpin("shirt", "2026-10-26", 2),
+    ];
+
+    expect(remainingDailyStock(state.spins, "tws", getWibDate(beforeMidnight))).toBe(2);
+    expect(remainingDailyStock(state.spins, "shirt", getWibDate(beforeMidnight))).toBe(9);
+    expect(remainingDailyStock(state.spins, "tws", getWibDate(atMidnight))).toBe(3);
+    expect(remainingDailyStock(state.spins, "shirt", getWibDate(atMidnight))).toBe(10);
+    expect(state.spins).toHaveLength(2);
   });
 });

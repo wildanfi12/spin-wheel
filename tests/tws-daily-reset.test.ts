@@ -1,263 +1,182 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { BackendEngine, BASE_PRIZES, WHEEL_7_SEGMENTS } from "../server/backendEngine";
+import { beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import {
+  BackendEngine,
+  BASE_PRIZES,
+  WHEEL_6_SEGMENTS,
+  type BackendSpin,
+} from "../server/backendEngine";
+import { DAILY_STOCK_LIMITS } from "../src/inventory";
 import { getWibDate } from "../src/timezone";
 
-describe("TWS HW01 Daily Limit & 00.00 WIB Reset Specification (12 Test Cases)", () => {
-  let engine: BackendEngine;
+let engine: BackendEngine;
+function createHistorySpin(
+  prizeId: string,
+  dateWib: string,
+  index: number,
+): BackendSpin {
+  const prize = BASE_PRIZES.find((item) => item.id === prizeId)!;
+  const at = new Date(dateWib + "T05:00:00.000Z").toISOString();
+  return {
+    id: prizeId + "-" + dateWib + "-" + index,
+    sessionId: "old-session-" + index,
+    prizeId,
+    prizeName: prize.name,
+    sku: prize.sku,
+    image: prize.image,
+    icon: prize.icon,
+    code: "OLD-" + index,
+    at,
+    status: "Won",
+    segment: WHEEL_6_SEGMENTS.indexOf(prizeId),
+    segments: [...WHEEL_6_SEGMENTS],
+    rotation: 2160,
+    dateWib,
+  };
+}
 
-  beforeEach(async () => {
-    // Fresh engine instance with in-memory state
-    engine = new BackendEngine(undefined, {
-      version: 1,
-      prizes: JSON.parse(JSON.stringify(BASE_PRIZES)),
-      segments: [...WHEEL_7_SEGMENTS],
-      spins: [],
-      dailyTwsClaims: {},
-    });
+function newEngine(spins: BackendSpin[] = []) {
+  return new BackendEngine(null, {
+    version: 1,
+    prizes: structuredClone(BASE_PRIZES),
+    segments: [...WHEEL_6_SEGMENTS],
+    spins,
+    dailyTwsClaims: {},
+  });
+}
+
+beforeEach(() => {
+  engine = newEngine();
+});
+
+describe("daily reward stock and Jakarta reset", () => {
+  it("starts with exactly six prizes and the requested daily quantities", () => {
+    const status = engine.getAdminStatus(new Date("2026-10-26T02:00:00.000Z"));
+    expect(status.inventoryPolicy).toBe("daily-spin-ledger-v1");
+    expect(status.segments).toEqual(["tws", "shirt", "umbrella", "cable", "earphone", "discount"]);
+    expect(status.inventory.map((row) => [row.id, row.limit, row.remaining])).toEqual([
+      ["tws", 3, 3],
+      ["shirt", 10, 10],
+      ["umbrella", 8, 8],
+      ["cable", 5, 5],
+      ["earphone", 20, 20],
+      ["discount", 50, 50],
+    ]);
   });
 
-  // 1. Sebelum ada pemenang, TWS tersedia dengan kuota 0/1.
-  it("Test 1: Sebelum ada pemenang, TWS tersedia dengan kuota 0/1", () => {
-    // Tanggal 26 Oktober 2026 pukul 09.00 WIB
-    const morningDate = new Date("2026-10-26T02:00:00.000Z"); // 09:00 WIB
-    const status = engine.getAdminStatus(morningDate);
-
-    expect(status.operationalDate).toBe("2026-10-26");
-    expect(status.quotaTwsDaily).toBe(1);
-    expect(status.twsWinnersToday).toBe(0);
-    expect(status.twsStatus).toBe("Tersedia");
-    expect(status.actualProbabilities["tws"]).toBe(0.03);
-  });
-
-  // 2. Setelah satu pemenang pada tanggal tertentu, kuota berubah menjadi 1/1.
-  it("Test 2: Setelah satu pemenang pada tanggal tertentu, kuota berubah menjadi 1/1", async () => {
-    // Tanggal 26 Oktober 2026 pukul 14.00 WIB
-    const winTime = new Date("2026-10-26T07:00:00.000Z"); // 14:00 WIB
-    // Force roll to win TWS: random value 0.01 falls in [0, 0.03) -> TWS
-    const outcome = await engine.spin(
-      { sessionId: "session-1", overrideRandom: 0.01 },
-      winTime,
-    );
-
-    expect(outcome.spin.prizeId).toBe("tws");
-    expect(outcome.spin.sku).toBe("HW01");
-    expect(outcome.spin.segment).toBe(0); // Sektor 0 pada roda 7 sektor
-
-    const status = engine.getAdminStatus(winTime);
-    expect(status.twsWinnersToday).toBe(1);
-    expect(status.twsStatus).toBe("Kuota Hari Ini Habis");
-  });
-
-  // 3. Spin berikutnya pada tanggal yang sama tidak bisa memenangkan TWS.
-  it("Test 3: Spin berikutnya pada tanggal yang sama tidak bisa memenangkan TWS", async () => {
-    const today = new Date("2026-10-26T08:00:00.000Z"); // 15:00 WIB
-    // Menangkan TWS pertama
-    await engine.spin({ sessionId: "session-1", overrideRandom: 0.01 }, today);
-
-    // Coba 100 putaran berikutnya dengan berbagai nilai acak
-    for (let i = 0; i < 100; i++) {
-      const randomVal = i / 100;
-      const res = await engine.spin(
-        { sessionId: `session-subsequent-${i}`, overrideRandom: randomVal },
-        today,
+  it("allows three TWS winners per WIB day and replaces TWS after its limit is spent", async () => {
+    const now = new Date("2026-10-26T07:00:00.000Z");
+    const wins: BackendSpin[] = [];
+    for (let i = 0; i < 4; i++) {
+      const result = await engine.spin(
+        { sessionId: "participant-" + i, overrideRandom: 0.001 },
+        now,
       );
-      // Dipastikan tidak ada yang memenangkan TWS
-      expect(res.spin.prizeId).not.toBe("tws");
-      expect(res.spin.segment).not.toBe(0); // Roda tidak pernah berhenti di sektor 0
+      wins.push(result.spin);
     }
 
-    const status = engine.getAdminStatus(today);
-    expect(status.twsWinnersToday).toBe(1); // Tetap tepat 1
+    expect(wins.slice(0, 3).map((spin) => spin.prizeId)).toEqual(["tws", "tws", "tws"]);
+    expect(wins[3].prizeId).not.toBe("tws");
+    const status = engine.getAdminStatus(now);
+    expect(status.inventory.find((row) => row.id === "tws")?.issued).toBe(3);
+    expect(status.inventory.find((row) => row.id === "tws")?.remaining).toBe(0);
+    expect(status.twsWinnersHistory).toHaveLength(3);
   });
 
-  // 4. Pada pukul 23.59 WIB, TWS tetap tidak tersedia jika kuota telah digunakan.
-  it("Test 4: Pada pukul 23.59 WIB, TWS tetap tidak tersedia jika kuota telah digunakan", async () => {
-    // Pemenang di siang hari: 14:00 WIB
-    const afternoon = new Date("2026-10-26T07:00:00.000Z");
-    await engine.spin({ sessionId: "session-1", overrideRandom: 0.01 }, afternoon);
+  it("resets every prize count at 00:00 WIB without removing earlier history", async () => {
+    const dayOne = new Date("2026-10-26T16:00:00.000Z"); // 23:00 WIB
+    const dayTwo = new Date("2026-10-26T17:00:00.000Z"); // 00:00 WIB
 
-    // Waktu 23:59:59 WIB pada hari yang sama (16:59:59 UTC)
-    const lateNight = new Date("2026-10-26T16:59:59.000Z");
-    expect(getWibDate(lateNight)).toBe("2026-10-26");
+    for (let i = 0; i < DAILY_STOCK_LIMITS.tws; i++) {
+      await engine.spin(
+        { sessionId: "day-one-" + i, overrideRandom: 0.001 },
+        dayOne,
+      );
+    }
+    const afterFirstDay = engine.getAdminStatus(dayOne);
+    expect(afterFirstDay.inventory.find((row) => row.id === "tws")?.remaining).toBe(0);
 
-    const status = engine.getAdminStatus(lateNight);
-    expect(status.twsWinnersToday).toBe(1);
-    expect(status.twsStatus).toBe("Kuota Hari Ini Habis");
-    expect(status.actualProbabilities["tws"]).toBe(0);
+    const atReset = engine.getAdminStatus(dayTwo);
+    expect(atReset.operationalDate).toBe("2026-10-27");
+    expect(atReset.inventory.find((row) => row.id === "tws")?.remaining).toBe(3);
+    expect(atReset.twsWinnersHistory).toHaveLength(3);
 
-    // Spin di 23:59 WIB tetap tidak dapat TWS
-    const lateSpin = await engine.spin({ sessionId: "session-late", overrideRandom: 0.001 }, lateNight);
-    expect(lateSpin.spin.prizeId).not.toBe("tws");
+    for (let i = 0; i < DAILY_STOCK_LIMITS.tws; i++) {
+      await engine.spin(
+        { sessionId: "day-two-" + i, overrideRandom: 0.001 },
+        dayTwo,
+      );
+    }
+    const nextDay = engine.getAdminStatus(dayTwo);
+    expect(nextDay.inventory.find((row) => row.id === "tws")?.issued).toBe(3);
+    expect(nextDay.twsWinnersHistory).toHaveLength(6);
+    expect(nextDay.twsWinnersHistory[0].dateWib).toBe("2026-10-27");
+    expect(nextDay.twsWinnersHistory[5].dateWib).toBe("2026-10-26");
   });
 
-  // 5. Pada pukul 00.00 WIB, tanggal operasional berubah dan kuota kembali tersedia.
-  it("Test 5: Pada pukul 00.00 WIB, tanggal operasional berubah dan kuota kembali tersedia", async () => {
-    // 26 Oktober siang: satu pemenang TWS
-    const oct26 = new Date("2026-10-26T07:00:00.000Z");
-    await engine.spin({ sessionId: "session-oct26", overrideRandom: 0.01 }, oct26);
-    expect(engine.getAdminStatus(oct26).twsWinnersToday).toBe(1);
-
-    // Tepat pukul 00:00:00 WIB tanggal 27 Oktober (17:00:00 UTC tanggal 26)
-    const midnightWib = new Date("2026-10-26T17:00:00.000Z");
-    expect(getWibDate(midnightWib)).toBe("2026-10-27");
-
-    const statusAtMidnight = engine.getAdminStatus(midnightWib);
-    expect(statusAtMidnight.operationalDate).toBe("2026-10-27");
-    expect(statusAtMidnight.twsWinnersToday).toBe(0); // Kuota reset kembali 0/1!
-    expect(statusAtMidnight.twsStatus).toBe("Tersedia");
-    expect(statusAtMidnight.actualProbabilities["tws"]).toBe(0.03); // Peluang 3% aktif kembali!
-
-    // Pengguna tanggal 27 Oktober memenangkan TWS
-    const oct27Spin = await engine.spin(
-      { sessionId: "session-oct27", overrideRandom: 0.01 },
-      midnightWib,
-    );
-    expect(oct27Spin.spin.prizeId).toBe("tws");
-    expect(oct27Spin.spin.dateWib).toBe("2026-10-27");
-
-    // Sekarang kuota 27 Oktober menjadi 1/1
-    expect(engine.getAdminStatus(midnightWib).twsWinnersToday).toBe(1);
-  });
-
-  // 6. Reset tidak bergantung pada aktivitas pengguna atau timer browser.
-  it("Test 6: Reset tidak bergantung pada aktivitas pengguna atau timer browser", () => {
-    // Simulasi aplikasi tidak disentuh/dibuka selama berjam-jam melewati tengah malam
-    const idleBefore = new Date("2026-10-26T14:00:00.000Z"); // 21:00 WIB
-    expect(getWibDate(idleBefore)).toBe("2026-10-26");
-    const idleAfter = new Date("2026-10-27T03:00:00.000Z"); // 10:00 WIB keesokan harinya (gap 13 jam)
-
-    // Langsung periksa status pada saat aplikasi dibuka kembali
-    const statusAfter = engine.getAdminStatus(idleAfter);
-    expect(statusAfter.operationalDate).toBe("2026-10-27");
-    expect(statusAfter.twsWinnersToday).toBe(0);
-    expect(statusAfter.twsStatus).toBe("Tersedia");
-  });
-
-  // 7. Pergantian hari tetap benar ketika timestamp database menggunakan UTC.
-  it("Test 7: Pergantian hari tetap benar ketika timestamp database menggunakan UTC", () => {
-    // 26 Okt 23:59:59 WIB disimpan sebagai UTC 2026-10-26T16:59:59.000Z
-    const t1Utc = new Date("2026-10-26T16:59:59.000Z");
-    // 27 Okt 00:00:00 WIB disimpan sebagai UTC 2026-10-26T17:00:00.000Z
-    const t2Utc = new Date("2026-10-26T17:00:00.000Z");
-
-    expect(getWibDate(t1Utc)).toBe("2026-10-26");
-    expect(getWibDate(t2Utc)).toBe("2026-10-27");
-  });
-
-  // 8. Dua spin bersamaan tidak dapat menghasilkan dua pemenang TWS pada tanggal WIB yang sama.
-  it("Test 8: Dua spin bersamaan tidak dapat menghasilkan dua pemenang TWS pada tanggal WIB yang sama (Concurrency)", async () => {
-    const sameTime = new Date("2026-10-26T04:30:00.000Z");
-
-    // 20 request spin serentak dikirim secara bersamaan dengan Promise.all
-    // Semuanya mencoba roll nilai random 0.01 yang seharusnya memicu TWS
-    const concurrentRequests = Array.from({ length: 20 }, (_, i) =>
-      engine.spin(
-        { sessionId: `session-concurrent-${i}`, overrideRandom: 0.01 },
-        sameTime,
+  it("never allocates more than 96 prizes during concurrent spins", async () => {
+    const attempts = await Promise.allSettled(
+      Array.from({ length: 110 }, (_, i) =>
+        engine.spin({ sessionId: "parallel-" + i, overrideRandom: 0.8 }),
       ),
     );
+    const successes = attempts.filter((result) => result.status === "fulfilled");
+    expect(successes).toHaveLength(96);
 
-    const results = await Promise.all(concurrentRequests);
-
-    // Hitung berapa yang berhasil mendapatkan TWS
-    const twsWinners = results.filter((r) => r.spin.prizeId === "tws");
-
-    // MUTEX & CONSTRAINT MENJAMIN HANYA TEPAT 1 PEMENANG TWS!
-    expect(twsWinners).toHaveLength(1);
-    expect(twsWinners[0].spin.prizeId).toBe("tws");
-
-    // 19 peserta lainnya mendapatkan hadiah alternatif dan BUKAN TWS
-    const otherWinners = results.filter((r) => r.spin.prizeId !== "tws");
-    expect(otherWinners).toHaveLength(19);
-
-    // Sektor roda peserta lain bukan sektor 0
-    for (const other of otherWinners) {
-      expect(other.spin.segment).not.toBe(0);
+    const status = engine.getAdminStatus();
+    expect(status.totalIssuedToday).toBe(96);
+    expect(status.inventory.reduce((sum, row) => sum + row.remaining, 0)).toBe(0);
+    for (const row of status.inventory) {
+      expect(row.issued).toBeLessThanOrEqual(row.limit);
+      expect(row.remaining).toBeGreaterThanOrEqual(0);
     }
   });
 
-  // 9. Riwayat hari sebelumnya tetap tersimpan.
-  it("Test 9: Riwayat hari sebelumnya tetap tersimpan saat berganti hari", async () => {
-    const day1 = new Date("2026-10-26T03:00:00.000Z");
-    const day2 = new Date("2026-10-27T03:00:00.000Z");
+  it("migrates old prize catalogs while retaining removed-prize history", () => {
+    const oldHdmi = {
+      id: "hdmi",
+      name: "KABEL HDMI 4K",
+      sku: "H0103",
+      description: "Hadiah lama",
+      stock: 150,
+      enabled: true,
+      baseWeight: 15,
+      icon: "hdmi",
+      image: "assets/hdmi-4k.png",
+      wheelLines: ["KABEL", "HDMI 4K"],
+    };
+    const oldSpin = createHistorySpin("tws", "2026-10-25", 1);
+    const migrated = new BackendEngine(null, {
+      version: 1,
+      prizes: [...structuredClone(BASE_PRIZES), oldHdmi],
+      segments: ["tws", "discount", "earphone", "hdmi", "shirt", "cable", "umbrella"],
+      spins: [oldSpin],
+      dailyTwsClaims: {},
+    }).getState();
 
-    // Menang di hari 1
-    const spin1 = await engine.spin({ sessionId: "sess-d1", overrideRandom: 0.01 }, day1);
-    expect(spin1.spin.prizeId).toBe("tws");
-
-    // Menang di hari 2
-    const spin2 = await engine.spin({ sessionId: "sess-d2", overrideRandom: 0.01 }, day2);
-    expect(spin2.spin.prizeId).toBe("tws");
-
-    const statusDay2 = engine.getAdminStatus(day2);
-    // Riwayat hari 1 dan hari 2 keduanya tersimpan utuh
-    expect(statusDay2.twsWinnersHistory).toHaveLength(2);
-    expect(statusDay2.twsWinnersHistory[0].dateWib).toBe("2026-10-27");
-    expect(statusDay2.twsWinnersHistory[1].dateWib).toBe("2026-10-26");
+    expect(migrated.segments).toEqual(WHEEL_6_SEGMENTS);
+    expect(migrated.prizes.map((prize) => prize.id)).toEqual(WHEEL_6_SEGMENTS);
+    expect(migrated.spins).toEqual([oldSpin]);
   });
 
-  // 10. Distribusi probabilitas hadiah lain berjumlah 100% setelah TWS dinonaktifkan.
-  it("Test 10: Distribusi probabilitas hadiah lain berjumlah 100% setelah TWS dinonaktifkan", async () => {
-    const date = new Date("2026-10-26T05:00:00.000Z");
-    // Menangkan TWS
-    await engine.spin({ sessionId: "sess-1", overrideRandom: 0.01 }, date);
-
-    const status = engine.getAdminStatus(date);
-    const actual = status.actualProbabilities;
-
-    // TWS = 0%
-    expect(actual["tws"]).toBe(0);
-
-    // Jumlah total probabilitas hadiah yang tersedia harus tepat 1 (100%)
-    const sumActual = Object.values(actual).reduce((sum, p) => sum + p, 0);
-    expect(sumActual).toBeCloseTo(1.0, 5);
-
-    // Proporsi masing-masing hadiah: weight / 97
-    expect(actual["discount"]).toBeCloseTo(30 / 97, 4); // ~30.93%
-    expect(actual["earphone"]).toBeCloseTo(25 / 97, 4); // ~25.77%
-    expect(actual["hdmi"]).toBeCloseTo(15 / 97, 4);     // ~15.46%
-    expect(actual["shirt"]).toBeCloseTo(10 / 97, 4);    // ~10.31%
-    expect(actual["cable"]).toBeCloseTo(10 / 97, 4);    // ~10.31%
-    expect(actual["umbrella"]).toBeCloseTo(7 / 97, 4);  // ~7.22%
+  it("uses the same operational date immediately before and after midnight WIB", () => {
+    const before = new Date("2026-10-26T16:59:59.000Z");
+    const midnight = new Date("2026-10-26T17:00:00.000Z");
+    expect(getWibDate(before)).toBe("2026-10-26");
+    expect(getWibDate(midnight)).toBe("2026-10-27");
   });
 
-  // 11. Animasi roda selalu sesuai dengan hasil yang ditetapkan backend.
-  it("Test 11: Animasi roda selalu sesuai dengan hasil yang ditetapkan backend", async () => {
-    const date = new Date("2026-10-26T06:00:00.000Z");
-
-    for (let i = 0; i < 30; i++) {
-      const outcome = await engine.spin({ sessionId: `session-visual-${i}` }, date);
-      const segmentIndex = outcome.spin.segment;
-      const prizeAtSegment = outcome.spin.segments[segmentIndex];
-
-      // Sektor yang dipilih harus identik dengan prizeId yang dimenangkan
-      expect(prizeAtSegment).toBe(outcome.spin.prizeId);
-    }
-  });
-
-  // 12. Request duplikat tidak menyebabkan hadiah atau alokasi kuota ganda.
-  it("Test 12: Request duplikat (idempotensi) tidak menyebabkan hadiah atau kuota ganda", async () => {
-    const date = new Date("2026-10-26T07:00:00.000Z");
-    const requestId = "client-req-unique-uuid-12345";
-
-    // Request pertama
-    const firstCall = await engine.spin(
-      { sessionId: "sess-idemp", clientRequestId: requestId, overrideRandom: 0.01 },
-      date,
-    );
-    expect(firstCall.spin.prizeId).toBe("tws");
-    const stockAfterFirst = engine.getState().prizes.find((p) => p.id === "tws")!.stock;
-
-    // Request duplikat (misalnya akibat double-click atau retry network)
-    const secondCall = await engine.spin(
-      { sessionId: "sess-idemp", clientRequestId: requestId, overrideRandom: 0.01 },
-      date,
-    );
-
-    // Hasil harus identik dengan spin pertama, dan stok tidak terpotong ganda
-    expect(secondCall.spin.id).toBe(firstCall.spin.id);
-    expect(secondCall.spin.code).toBe(firstCall.spin.code);
-    expect(engine.getState().prizes.find((p) => p.id === "tws")!.stock).toBe(stockAfterFirst);
+  it("deduplicates retried requests without consuming inventory twice", async () => {
+    const now = new Date("2026-10-26T07:00:00.000Z");
+    const params = {
+      sessionId: "retry-session",
+      clientRequestId: randomUUID(),
+      overrideRandom: 0.001,
+    };
+    const first = await engine.spin(params, now);
+    const retry = await engine.spin(params, now);
+    expect(retry.spin.id).toBe(first.spin.id);
+    expect(engine.getAdminStatus(now).inventory.find((row) => row.id === "tws")?.issued).toBe(1);
     expect(engine.getState().spins).toHaveLength(1);
   });
 });

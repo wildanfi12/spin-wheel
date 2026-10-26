@@ -9,6 +9,12 @@ import {
   getNextResetTime,
   getResetCountdown,
 } from "../src/timezone";
+import {
+  DAILY_STOCK_LIMITS,
+  getDailyInventory,
+  INVENTORY_POLICY,
+  remainingDailyStock,
+} from "../src/inventory";
 
 export interface BackendPrize {
   id: string;
@@ -94,29 +100,18 @@ export const BASE_PRIZES: BackendPrize[] = [
     name: "TWS HW01",
     sku: "HW01",
     description: "Grand Prize Utama: TWS Howell HW01 (Rp 419.000)",
-    stock: 30,
+    stock: DAILY_STOCK_LIMITS.tws,
     enabled: true,
     baseWeight: 3,
     icon: "trophy",
-    image: "/spin-wheel/assets/tws-howell.png",
+    image: "assets/tws-howell.png",
     wheelLines: ["TWS", "HW01"],
-  },
-  {
-    id: "umbrella",
-    name: "PAYUNG HOWELL",
-    description: "Exclusive Souvenir: Payung eksklusif Howell",
-    stock: 70,
-    enabled: true,
-    baseWeight: 7,
-    icon: "umbrella",
-    image: "/spin-wheel/assets/payung-howell.png",
-    wheelLines: ["PAYUNG", "HOWELL"],
   },
   {
     id: "shirt",
     name: "KAOS HOWELL",
     description: "Kaos eksklusif resmi HOWELL.",
-    stock: 100,
+    stock: DAILY_STOCK_LIMITS.shirt,
     enabled: true,
     baseWeight: 10,
     icon: "shirt",
@@ -124,102 +119,87 @@ export const BASE_PRIZES: BackendPrize[] = [
     wheelLines: ["KAOS", "HOWELL"],
   },
   {
+    id: "umbrella",
+    name: "PAYUNG HOWELL",
+    description: "Payung eksklusif HOWELL.",
+    stock: DAILY_STOCK_LIMITS.umbrella,
+    enabled: true,
+    baseWeight: 7,
+    icon: "umbrella",
+    image: "assets/payung-howell.png",
+    wheelLines: ["PAYUNG", "HOWELL"],
+  },
+  {
     id: "cable",
     name: "KABEL DATA 4 IN 1",
     sku: "AC01",
-    description: "Mid Tier: Kabel multi-connector 4 in 1 Howell (Rp 126.000)",
-    stock: 100,
+    description: "Kabel data Howell 4 in 1.",
+    stock: DAILY_STOCK_LIMITS.cable,
     enabled: true,
     baseWeight: 10,
     icon: "cable",
-    image: "/spin-wheel/assets/kabel-data-4in1.png",
+    image: "assets/kabel-data-4in1.png",
     wheelLines: ["KABEL DATA", "4 IN 1"],
-  },
-  {
-    id: "hdmi",
-    name: "KABEL HDMI 4K",
-    sku: "H0103",
-    description: "Standard Tier: Kabel HDMI 4K Howell (Rp 37.000)",
-    stock: 150,
-    enabled: true,
-    baseWeight: 15,
-    icon: "hdmi",
-    image: "/spin-wheel/assets/hdmi-4k.png",
-    wheelLines: ["KABEL", "HDMI 4K"],
   },
   {
     id: "earphone",
     name: "EARPHONE HW03",
     sku: "HW03",
-    description: "Volume Winner: Earphone HW03 Howell (Rp 31.000)",
-    stock: 250,
+    description: "Earphone Howell HW03.",
+    stock: DAILY_STOCK_LIMITS.earphone,
     enabled: true,
     baseWeight: 25,
     icon: "headphones",
-    image: "/spin-wheel/assets/earphone.png",
+    image: "assets/earphone.png",
     wheelLines: ["EARPHONE", "HW03"],
   },
   {
     id: "discount",
     name: "VOUCHER DISKON 20%",
-    description: "Direct Sales Driver: Voucher diskon belanja 20% produk Howell",
-    stock: 300,
+    description: "Voucher diskon 20% produk HOWELL.",
+    stock: DAILY_STOCK_LIMITS.discount,
     enabled: true,
     baseWeight: 30,
     icon: "ticket",
-    image: "/spin-wheel/assets/voucher-diskon-20.png",
+    image: "assets/voucher-diskon-20.png",
     wheelLines: ["VOUCHER", "DISKON 20%"],
   },
 ];
 
-export const WHEEL_7_SEGMENTS: string[] = [
+export const WHEEL_6_SEGMENTS: string[] = [
   "tws", // 0
-  "discount", // 1
-  "earphone", // 2
-  "hdmi", // 3
-  "shirt", // 4
-  "cable", // 5
-  "umbrella", // 6
+  "shirt", // 1
+  "umbrella", // 2
+  "cable", // 3
+  "earphone", // 4
+  "discount", // 5
 ];
-export const WHEEL_12_SEGMENTS = WHEEL_7_SEGMENTS;
 
 export class BackendEngine {
   private state: BackendState;
   private mutex = new AsyncMutex();
-  private dbPath: string;
+  private dbPath: string | null;
   private simulatedTime: Date | null = null;
   private processedRequests = new Map<string, BackendSpin>();
 
-  constructor(dbPath?: string, initialState?: Partial<BackendState>) {
+  constructor(dbPath?: string | null, initialState?: Partial<BackendState>) {
     this.dbPath =
-      dbPath ||
-      path.resolve(process.cwd(), "data", "spin-wheel-backend-state.json");
+      dbPath === undefined
+        ? path.resolve(process.cwd(), "data", "spin-wheel-backend-state.json")
+        : dbPath;
     this.state = this.loadState(initialState);
   }
 
   private loadState(override?: Partial<BackendState>): BackendState {
     if (override && override.prizes) {
-      this.migrateShirtPrize(override.prizes);
-      return {
-        version: 1,
-        prizes: override.prizes,
-        segments: override.segments || [...WHEEL_7_SEGMENTS],
-        spins: override.spins || [],
-        dailyTwsClaims: override.dailyTwsClaims || {},
-      };
+      return this.migrateState(override);
     }
 
     try {
-      if (fs.existsSync(this.dbPath)) {
+      if (this.dbPath && fs.existsSync(this.dbPath)) {
         const raw = fs.readFileSync(this.dbPath, "utf-8");
         const parsed = JSON.parse(raw);
         if (parsed.version === 1 && Array.isArray(parsed.prizes)) {
-          if (!parsed.segments || parsed.segments.length !== 7) {
-            parsed.segments = [...WHEEL_7_SEGMENTS];
-          }
-          if (Array.isArray(parsed.prizes)) {
-            this.migrateShirtPrize(parsed.prizes);
-          }
           // Re-populate processedRequests cache from saved spins
           if (Array.isArray(parsed.spins)) {
             for (const spin of parsed.spins) {
@@ -228,7 +208,7 @@ export class BackendEngine {
               }
             }
           }
-          return parsed;
+          return this.migrateState(parsed);
         }
       }
     } catch (e) {
@@ -238,28 +218,43 @@ export class BackendEngine {
     return {
       version: 1,
       prizes: JSON.parse(JSON.stringify(BASE_PRIZES)),
-      segments: [...WHEEL_7_SEGMENTS],
+      segments: [...WHEEL_6_SEGMENTS],
       spins: [],
       dailyTwsClaims: {},
     };
   }
 
-  private migrateShirtPrize(prizes: BackendPrize[]): void {
-    const shirt = prizes.find((prize) => prize.id === "shirt");
-    if (!shirt) return;
-    shirt.name = "KAOS HOWELL";
-    shirt.description = "Kaos eksklusif resmi HOWELL.";
-    shirt.image = "assets/baju-howell.png";
-    shirt.wheelLines = ["KAOS", "HOWELL"];
+  private migrateState(source: Partial<BackendState>): BackendState {
+    const oldPrizes = Array.isArray(source.prizes) ? source.prizes : [];
+    const prizes = BASE_PRIZES.map((base) => {
+      const old = oldPrizes.find((prize) => prize.id === base.id);
+      return {
+        ...base,
+        enabled: typeof old?.enabled === "boolean" ? old.enabled : base.enabled,
+        baseWeight:
+          typeof old?.baseWeight === "number" && Number.isFinite(old.baseWeight) && old.baseWeight > 0
+            ? old.baseWeight
+            : base.baseWeight,
+        stock: DAILY_STOCK_LIMITS[base.id] ?? base.stock,
+      };
+    });
+    return {
+      version: 1,
+      prizes,
+      segments: [...WHEEL_6_SEGMENTS],
+      spins: Array.isArray(source.spins) ? source.spins : [],
+      dailyTwsClaims: source.dailyTwsClaims || {},
+    };
   }
 
   private async persistState(): Promise<void> {
+    if (!this.dbPath) return;
     try {
       const dir = path.dirname(this.dbPath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      const tmpPath = `${this.dbPath}.tmp.${Date.now()}`;
+      const tmpPath = `${this.dbPath}.tmp.${crypto.randomUUID()}`;
       fs.writeFileSync(tmpPath, JSON.stringify(this.state, null, 2), "utf-8");
       fs.renameSync(tmpPath, this.dbPath);
     } catch (e) {
@@ -284,28 +279,11 @@ export class BackendEngine {
     return this.simulatedTime !== null;
   }
 
-  // TWS Daily Quota & Status Calculations
+  // Daily prize limits are derived from the dated spin ledger. That same ledger
+  // keeps history intact while naturally starting a new inventory at 00:00 WIB.
   public isTwsAvailableForDate(dateWib: string): boolean {
-    // 1. Check unique daily constraint in dailyTwsClaims table
-    if (this.state.dailyTwsClaims[dateWib]) {
-      return false;
-    }
-    // 2. Also inspect existing spins history (excluding voided)
-    const claimedInSpins = this.state.spins.some(
-      (s) =>
-        s.prizeId === "tws" &&
-        s.status !== "Voided" &&
-        s.dateWib === dateWib,
-    );
-    if (claimedInSpins) {
-      return false;
-    }
-    // 3. Check overall physical inventory stock
     const tws = this.state.prizes.find((p) => p.id === "tws");
-    if (!tws || !tws.enabled || tws.stock <= 0) {
-      return false;
-    }
-    return true;
+    return !!tws?.enabled && remainingDailyStock(this.state.spins, "tws", dateWib) > 0;
   }
 
   public getProbabilities(now = this.getNow()): {
@@ -322,39 +300,39 @@ export class BackendEngine {
   } {
     const dateWib = getWibDate(now);
     const twsAvailable = this.isTwsAvailableForDate(dateWib);
+    const inventory = getDailyInventory(
+      this.state.prizes.filter((prize) => this.state.segments.includes(prize.id)),
+      this.state.spins,
+      dateWib,
+    );
+    const remaining = new Map(inventory.map((row) => [row.id, row.remaining]));
 
     const base: Record<string, number> = {};
-    const totalBaseWeight = this.state.prizes.reduce(
-      (acc, p) => acc + (p.enabled && p.stock > 0 ? p.baseWeight : 0),
-      0,
-    );
-
-    for (const p of this.state.prizes) {
+    const activePrizes = this.state.prizes.filter((p) => this.state.segments.includes(p.id));
+    for (const p of activePrizes) {
       base[p.id] = (p.baseWeight / 100);
     }
 
     const actual: Record<string, number> = {};
     let totalEligibleWeight = 0;
 
-    for (const p of this.state.prizes) {
-      if (!p.enabled || p.stock <= 0) {
-        actual[p.id] = 0;
-      } else if (p.id === "tws" && !twsAvailable) {
+    for (const p of activePrizes) {
+      if (!p.enabled || (remaining.get(p.id) ?? 0) <= 0) {
         actual[p.id] = 0;
       } else {
         totalEligibleWeight += p.baseWeight;
       }
     }
 
-    for (const p of this.state.prizes) {
-      if (!p.enabled || p.stock <= 0 || (p.id === "tws" && !twsAvailable)) {
+    for (const p of activePrizes) {
+      if (!p.enabled || (remaining.get(p.id) ?? 0) <= 0) {
         actual[p.id] = 0;
       } else {
         actual[p.id] = totalEligibleWeight > 0 ? p.baseWeight / totalEligibleWeight : 0;
       }
     }
 
-    const formatted = this.state.prizes.map((p) => ({
+    const formatted = activePrizes.map((p) => ({
       id: p.id,
       name: p.name,
       basePercent: `${(base[p.id] * 100).toFixed(2)}%`,
@@ -369,7 +347,15 @@ export class BackendEngine {
     const twsAvailable = this.isTwsAvailableForDate(dateWib);
     const nextReset = getNextResetTime(now);
     const probs = this.getProbabilities(now);
-    const twsWinnersToday = twsAvailable ? 0 : 1;
+    const inventory = getDailyInventory(
+      this.state.segments.flatMap((id) => {
+        const prize = this.state.prizes.find((item) => item.id === id);
+        return prize ? [prize] : [];
+      }),
+      this.state.spins,
+      dateWib,
+    );
+    const twsWinnersToday = inventory.find((row) => row.id === "tws")?.issued ?? 0;
 
     // Filter TWS winners history
     const twsWinnersHistory = this.state.spins
@@ -387,11 +373,12 @@ export class BackendEngine {
 
     return {
       success: true,
+      inventoryPolicy: INVENTORY_POLICY,
       serverTime: now.toISOString(),
       serverTimeWib: getWibTimeString(now),
       operationalDate: dateWib,
       operationalDateDisplay: getWibDateDisplay(now),
-      quotaTwsDaily: 1,
+      quotaTwsDaily: DAILY_STOCK_LIMITS.tws,
       twsWinnersToday,
       twsStatus: twsAvailable ? "Tersedia" : "Kuota Hari Ini Habis",
       nextResetTime: nextReset.toISOString(),
@@ -401,6 +388,8 @@ export class BackendEngine {
       actualProbabilities: probs.actual,
       probabilitiesFormatted: probs.formatted,
       twsWinnersHistory,
+      inventory,
+      totalIssuedToday: inventory.reduce((sum, row) => sum + row.issued, 0),
       totalSpins: this.state.spins.length,
       prizes: this.state.prizes,
       segments: this.state.segments,
@@ -418,10 +407,12 @@ export class BackendEngine {
     overrideNow?: Date,
   ): Promise<{
     spin: BackendSpin;
+    inventoryPolicy: typeof INVENTORY_POLICY;
     operationalDate: string;
     twsWinnersToday: number;
     twsStatus: string;
     actualProbabilities: Record<string, number>;
+    inventory: ReturnType<typeof getDailyInventory>;
   }> {
     return this.mutex.runExclusive(async () => {
       // 1. Check idempotency: if clientRequestId already processed, return previous spin
@@ -431,21 +422,21 @@ export class BackendEngine {
         const admin = this.getAdminStatus(now);
         return {
           spin: existing,
+          inventoryPolicy: INVENTORY_POLICY,
           operationalDate: existing.dateWib,
           twsWinnersToday: admin.twsWinnersToday,
           twsStatus: admin.twsStatus,
           actualProbabilities: admin.actualProbabilities,
+          inventory: admin.inventory,
         };
       }
 
       const now = overrideNow || this.getNow();
       const dateWib = getWibDate(now);
-      const twsAvailable = this.isTwsAvailableForDate(dateWib);
-
       // 2. Build eligible prizes list with weights
       const eligiblePrizes = this.state.prizes.filter((p) => {
-        if (!p.enabled || p.stock <= 0) return false;
-        if (p.id === "tws" && !twsAvailable) return false;
+        if (!this.state.segments.includes(p.id) || !p.enabled) return false;
+        if (remainingDailyStock(this.state.spins, p.id, dateWib) <= 0) return false;
         return true;
       });
 
@@ -475,7 +466,7 @@ export class BackendEngine {
         }
       }
 
-      // 5. Select visual sector on 12-sector wheel
+      // 5. Select a visual sector on the six-sector wheel
       const matchingSectorIndices: number[] = [];
       for (let i = 0; i < this.state.segments.length; i++) {
         if (this.state.segments[i] === selectedPrize.id) {
@@ -494,19 +485,8 @@ export class BackendEngine {
       const chosenSectorIndex =
         matchingSectorIndices[Math.floor(subRandom * matchingSectorIndices.length)];
 
-      // 6. Enforce TWS unique date constraint atomically
-      if (selectedPrize.id === "tws") {
-        if (this.state.dailyTwsClaims[dateWib]) {
-          throw new Error(
-            `Pelanggaran kuota: TWS HW01 untuk tanggal ${dateWib} WIB sudah diklaim sebelumnya.`,
-          );
-        }
-      }
-
-      // 7. Decrement physical stock
-      selectedPrize.stock--;
-
-      // 8. Generate sequential spin code HW-XXXXXX
+      // 6. The new ledger row consumes one unit for its WIB date.
+      // 7. Generate sequential spin code HW-XXXXXX
       const nextSequence =
         Math.max(
           this.state.spins.length,
@@ -519,7 +499,7 @@ export class BackendEngine {
       const spinId = crypto.randomUUID();
       const atIso = now.toISOString();
 
-      // Rotation for 12 segments: 360 / 12 = 30 deg per segment
+      // Align the selected six-sector segment to the top pointer.
       // Align chosen sector to top pointer (sector i lands at pointer)
       const count = this.state.segments.length;
       const baseRotation = 2160; // 6 full turns
@@ -545,16 +525,6 @@ export class BackendEngine {
         dateWib,
       };
 
-      // 9. If TWS won, record unique daily claim
-      if (selectedPrize.id === "tws") {
-        this.state.dailyTwsClaims[dateWib] = {
-          spinId: spin.id,
-          wonAt: atIso,
-          code: spin.code,
-          dateWib,
-        };
-      }
-
       // Record in spins list and deduplication cache
       this.state.spins.push(spin);
       if (params.clientRequestId) {
@@ -568,45 +538,19 @@ export class BackendEngine {
 
       return {
         spin,
+        inventoryPolicy: INVENTORY_POLICY,
         operationalDate: dateWib,
         twsWinnersToday: admin.twsWinnersToday,
         twsStatus: admin.twsStatus,
         actualProbabilities: admin.actualProbabilities,
+        inventory: admin.inventory,
       };
     });
   }
 
-  // State inspection and reset methods
+  // State inspection only; history has no destructive reset operation.
   public getState(): BackendState {
     return JSON.parse(JSON.stringify(this.state));
-  }
-
-  public async resetTwsClaimForDate(dateWib: string): Promise<void> {
-    await this.mutex.runExclusive(async () => {
-      delete this.state.dailyTwsClaims[dateWib];
-      // Mark any spins for that date as voided if resetting
-      for (const s of this.state.spins) {
-        if (s.prizeId === "tws" && s.dateWib === dateWib) {
-          s.status = "Voided";
-        }
-      }
-      await this.persistState();
-    });
-  }
-
-  public async resetAll(): Promise<void> {
-    await this.mutex.runExclusive(async () => {
-      this.state = {
-        version: 1,
-        prizes: JSON.parse(JSON.stringify(BASE_PRIZES)),
-        segments: [...WHEEL_7_SEGMENTS],
-        spins: [],
-        dailyTwsClaims: {},
-      };
-      this.processedRequests.clear();
-      this.simulatedTime = null;
-      await this.persistState();
-    });
   }
 }
 

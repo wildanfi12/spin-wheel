@@ -2,20 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
-import { createSpinWheelApiMiddleware } from "./server/apiMiddleware";
 
 export default defineConfig({
   base: "./",
   plugins: [
-    {
-      name: "spin-wheel-backend-api",
-      configureServer(server) {
-        server.middlewares.use(createSpinWheelApiMiddleware());
-      },
-      configurePreviewServer(server) {
-        server.middlewares.use(createSpinWheelApiMiddleware());
-      },
-    },
     {
       name: "pages-source-entry",
       transformIndexHtml: {

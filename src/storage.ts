@@ -1,5 +1,6 @@
 import { openDB } from "idb";
 import { initial, validate, type State } from "./model";
+import { DAILY_STOCK_LIMITS } from "./inventory";
 
 const db = openDB("howell-booth", 1, {
   upgrade(db) {
@@ -7,35 +8,72 @@ const db = openDB("howell-booth", 1, {
   },
 });
 
-export async function mutate(fn: (s: State) => void) {
-  const d = await db;
-  const tx = d.transaction("app", "readwrite");
-  const s: State = (await tx.store.get("state")) || initial();
+function migratedState(source: Partial<State> | undefined): State {
+  const defaults = initial();
+  if (!source) return defaults;
 
-  if (
-    !s.segments ||
-    s.segments.length !== 7 ||
-    !s.prizes?.some((p) => p.id === "tws") ||
-    !s.prizes?.some((p) => p.id === "hdmi") ||
-    !s.prizes?.find((p) => p.id === "tws")?.image ||
-    !s.prizes?.find((p) => p.id === "tws")?.sku
-  ) {
-    const init = initial();
-    s.prizes = init.prizes;
-    s.segments = init.segments;
-    s.settings = init.settings;
-    if (!s.dailyTwsClaims) {
-      s.dailyTwsClaims = {};
+  const oldPrizes = Array.isArray(source.prizes) ? source.prizes : [];
+  const spins = Array.isArray(source.spins) ? source.spins : [];
+  const oldSession = source.session;
+  const session = oldSession?.id ? oldSession : defaults.session;
+  const prizes = defaults.prizes.map((base) => {
+    const old = oldPrizes.find((prize) => prize.id === base.id);
+    return {
+      ...base,
+      enabled: typeof old?.enabled === "boolean" ? old.enabled : base.enabled,
+      weight:
+        typeof old?.weight === "number" && Number.isFinite(old.weight) && old.weight > 0
+          ? old.weight
+          : base.weight,
+      stock: DAILY_STOCK_LIMITS[base.id] ?? base.stock,
+    };
+  });
+
+  // Keep removed prize metadata only while a saved, unfinished result still needs
+  // its original wheel segments to render. Historical rows remain in `spins`.
+  const pending = spins.find(
+    (spin) => spin.id === session.spinId && spin.status !== "Voided",
+  );
+  if (pending) {
+    const activeIds = new Set(defaults.segments);
+    const oldById = new Map(oldPrizes.map((prize) => [prize.id, prize]));
+    for (const id of pending.segments) {
+      if (activeIds.has(id)) continue;
+      const oldPrize = oldById.get(id);
+      if (oldPrize) {
+        prizes.push({ ...oldPrize, stock: 0, enabled: false });
+      } else if (pending.prizeId === id) {
+        prizes.push({
+          id,
+          name: pending.prizeName,
+          description: "Hadiah dari riwayat putaran sebelumnya.",
+          stock: 0,
+          enabled: false,
+          weight: 1,
+          image: pending.image,
+          icon: pending.icon,
+        });
+      }
     }
   }
 
-  const shirt = s.prizes.find((prize) => prize.id === "shirt");
-  if (shirt) {
-    shirt.name = "KAOS HOWELL";
-    shirt.description = "Kaos eksklusif resmi HOWELL.";
-    shirt.image = `${import.meta.env.BASE_URL}assets/baju-howell.png`;
-    shirt.wheelLines = ["KAOS", "HOWELL"];
-  }
+  return {
+    ...defaults,
+    ...source,
+    prizes,
+    segments: [...defaults.segments],
+    spins,
+    session,
+    settings: { ...defaults.settings, ...(source.settings || {}) },
+    dailyTwsClaims: source.dailyTwsClaims || {},
+  };
+}
+
+export async function mutate(fn: (s: State) => void) {
+  const d = await db;
+  const tx = d.transaction("app", "readwrite");
+  const stored = (await tx.store.get("state")) as Partial<State> | undefined;
+  const s = migratedState(stored);
 
   try {
     fn(s);
@@ -53,5 +91,6 @@ export async function mutate(fn: (s: State) => void) {
 export const read = () => mutate(() => {});
 export const restore = (s: State) => {
   validate(s);
-  return mutate((old) => Object.assign(old, s));
+  const migrated = migratedState(s);
+  return mutate((old) => Object.assign(old, migrated));
 };

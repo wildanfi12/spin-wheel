@@ -37,14 +37,13 @@ export function PrizeIcon({
   return <Icon size={size} strokeWidth={1.5} />;
 }
 
-const sectorColors = [
-  "#FFFFFF", // 0: TWS HW01
-  "#FFD600", // 1: VOUCHER DISKON 20%
-  "#FFFFFF", // 2: EARPHONE HW03
-  "#FFD600", // 3: KABEL HDMI 4K
-  "#FFFFFF", // 4: KAOS HOWELL
-  "#FFD600", // 5: KABEL DATA 4 IN 1
-  "#FFFFFF", // 6: PAYUNG HOWELL
+export const WHEEL_SECTOR_COLORS = [
+  "#FFD600", // TWS HW01
+  "#FFFFFF", // KAOS HOWELL
+  "#FFD600", // PAYUNG HOWELL
+  "#FFFFFF", // KABEL DATA 4 IN 1
+  "#FFD600", // EARPHONE HW03
+  "#FFFFFF", // VOUCHER DISKON 20%
 ];
 
 export const Wheel = forwardRef<
@@ -132,7 +131,7 @@ export const Wheel = forwardRef<
           const angle = 360 / n,
             a = ((i * angle - angle / 2 - 90) * Math.PI) / 180,
             b = ((i * angle + angle / 2 - 90) * Math.PI) / 180;
-          const fillColor = sectorColors[i % sectorColors.length];
+          const fillColor = WHEEL_SECTOR_COLORS[i % WHEEL_SECTOR_COLORS.length];
           const lines =
             p.wheelLines ||
             (p.name.includes("\n") ? p.name.split("\n") : p.name.split(" "));
@@ -166,10 +165,10 @@ export const Wheel = forwardRef<
                 {p.image ? (
                   <image
                     href={p.image}
-                    x="270"
-                    y="134"
-                    width="60"
-                    height="60"
+                    x="262"
+                    y="130"
+                    width="76"
+                    height="76"
                     preserveAspectRatio="xMidYMid meet"
                   />
                 ) : (

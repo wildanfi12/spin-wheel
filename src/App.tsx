@@ -151,7 +151,7 @@ export default function App() {
     progressRef.current = power;
     setProgress(power);
     setReleasedPower(power);
-    if (canRelease(phaseRef.current) && power > 0) {
+    if (canRelease(phaseRef.current) && power >= 1) {
       audio.current?.stop();
       audio.current = null;
       void spin(power);
@@ -500,7 +500,7 @@ export default function App() {
           </span>
         </section>
         <div className="prize-strip">
-          {state?.prizes.map((p) => (
+          {state?.prizes.filter((p) => state.segments.includes(p.id)).map((p) => (
             <div key={p.id}>
               {p.image ? (
                 <img

@@ -1,26 +1,13 @@
 import type { State, Spin } from "./model";
 import { getWibDate } from "./timezone";
+import { remainingDailyStock } from "./inventory";
 
 export function isTwsAvailableForDate(
   s: State,
   dateWib: string = getWibDate(),
 ): boolean {
-  // Check unique daily constraint
-  if (s.dailyTwsClaims && s.dailyTwsClaims[dateWib]) {
-    return false;
-  }
-  // Check spins history for that date
-  const claimedToday = s.spins.some(
-    (spin) =>
-      spin.prizeId === "tws" &&
-      spin.status !== "Voided" &&
-      (spin.dateWib === dateWib || getWibDate(new Date(spin.at)) === dateWib),
-  );
-  if (claimedToday) {
-    return false;
-  }
   const tws = s.prizes.find((p) => p.id === "tws");
-  if (!tws || !tws.enabled || tws.stock <= 0) {
+  if (!tws || !tws.enabled || remainingDailyStock(s.spins, "tws", dateWib) <= 0) {
     return false;
   }
   return true;
@@ -28,25 +15,23 @@ export function isTwsAvailableForDate(
 
 export const available = (s: State, now: Date = new Date()) => {
   const dateWib = getWibDate(now);
-  const twsAvailable = isTwsAvailableForDate(s, dateWib);
   return s.segments.filter((id) => {
-    if (id === "tws" && !twsAvailable) return false;
-    return s.prizes.some((p) => p.id === id && p.enabled && p.stock > 0);
+    const prize = s.prizes.find((p) => p.id === id);
+    return !!prize?.enabled && remainingDailyStock(s.spins, id, dateWib) > 0;
   });
 };
 
 export function select(s: State, random: number, now: Date = new Date()) {
   const dateWib = getWibDate(now);
-  const twsAvailable = isTwsAvailableForDate(s, dateWib);
   const segments = s.segments;
 
   if (random < 0 || random >= 1 || !Number.isFinite(random))
     throw Error("Nilai acak tidak valid.");
 
-  // Filter eligible prizes based on stock, enabled, and daily TWS quota
+  // Eligibility is based on the dated spin ledger, so every prize resets at 00:00 WIB.
   const eligiblePrizes = s.prizes.filter((p) => {
-    if (!p.enabled || p.stock <= 0) return false;
-    if (p.id === "tws" && !twsAvailable) return false;
+    if (!segments.includes(p.id) || !p.enabled) return false;
+    if (remainingDailyStock(s.spins, p.id, dateWib) <= 0) return false;
     return true;
   });
 
@@ -65,7 +50,7 @@ export function select(s: State, random: number, now: Date = new Date()) {
     }
   }
 
-  // Find corresponding sectors on the 12-sector wheel
+  // Find the matching active sector on the six-sector wheel
   const matchingIndices: number[] = [];
   for (let i = 0; i < segments.length; i++) {
     if (segments[i] === selectedPrize.id) {
@@ -122,20 +107,11 @@ function reserveIndex(s: State, index: number, now: Date = new Date()): Spin {
   if (!Number.isSafeInteger(index) || index < 0 || index >= segments.length)
     throw Error("Segmen hadiah tidak valid.");
   const p = s.prizes.find((p) => p.id === segments[index])!;
-  if (!p?.enabled || p.stock <= 0) throw Error("Hadiah pada segmen ini habis.");
+  const dateWib = getWibDate(now);
+  if (!p?.enabled || remainingDailyStock(s.spins, p.id, dateWib) <= 0)
+    throw Error("Hadiah pada segmen ini habis untuk hari ini.");
 
   const at = now.toISOString();
-  const dateWib = getWibDate(now);
-
-  if (p.id === "tws") {
-    if (!isTwsAvailableForDate(s, dateWib)) {
-      throw Error(
-        `Kuota harian TWS HW01 untuk tanggal ${dateWib} WIB sudah habis.`,
-      );
-    }
-  }
-
-  p.stock--;
   const next =
     Math.max(
       s.spins.length,
@@ -161,15 +137,6 @@ function reserveIndex(s: State, index: number, now: Date = new Date()): Spin {
     events: [{ at, action: "Won: stok dikurangi" }],
     dateWib,
   };
-
-  if (p.id === "tws") {
-    s.dailyTwsClaims = s.dailyTwsClaims || {};
-    s.dailyTwsClaims[dateWib] = {
-      spinId: r.id,
-      wonAt: at,
-      code: r.code,
-    };
-  }
 
   s.spins.push(r);
   s.session.spinId = r.id;
@@ -200,13 +167,7 @@ export function transition(
     ["Won", "Pending Claim"].includes(r.status) &&
     reason.trim()
   ) {
-    const p = s.prizes.find((p) => p.id === r.prizeId);
-    if (!p) throw Error("Hadiah tidak ditemukan.");
-    p.stock++;
     r.status = status;
-    if (r.prizeId === "tws" && r.dateWib && s.dailyTwsClaims) {
-      delete s.dailyTwsClaims[r.dateWib];
-    }
   } else throw Error("Perubahan status tidak diizinkan atau sudah dilakukan.");
   r.events.push({
     at: new Date().toISOString(),

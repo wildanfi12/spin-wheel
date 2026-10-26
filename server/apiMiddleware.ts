@@ -77,28 +77,6 @@ export function createSpinWheelApiMiddleware() {
         return;
       }
 
-      if (req.method === "POST" && cleanUrl === "/api/time/simulate") {
-        const body = await parseJsonBody(req);
-        globalBackendEngine.setSimulatedTime(body.simulatedTime || null);
-        const status = globalBackendEngine.getAdminStatus();
-        sendJson(res, 200, { message: "Simulated time updated", ...status });
-        return;
-      }
-
-      if (req.method === "POST" && cleanUrl === "/api/time/reset") {
-        globalBackendEngine.setSimulatedTime(null);
-        const status = globalBackendEngine.getAdminStatus();
-        sendJson(res, 200, { message: "Clock restored to real time", ...status });
-        return;
-      }
-
-      if (req.method === "POST" && cleanUrl === "/api/admin/reset-all") {
-        await globalBackendEngine.resetAll();
-        const status = globalBackendEngine.getAdminStatus();
-        sendJson(res, 200, { message: "All state reset", ...status });
-        return;
-      }
-
       sendJson(res, 404, { success: false, error: "Endpoint not found" });
     } catch (err: unknown) {
       console.error("API Error on", cleanUrl, err);

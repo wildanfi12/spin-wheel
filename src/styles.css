@@ -1202,6 +1202,23 @@ dialog::backdrop {
   align-items: center;
   gap: 8px;
 }
+.inventory-table th:first-child,
+.inventory-table td:first-child {
+  min-width: 190px;
+}
+.inventory-table th:not(:first-child),
+.inventory-table td:not(:first-child) {
+  white-space: nowrap;
+}
+.inventory-footnote {
+  margin: -8px 0 0;
+  padding: 12px 14px;
+  border-left: 2px solid #ffd600;
+  background: #151515;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.55;
+}
 
 /* Shared responsive refinement for the current wheel and admin-enabled app. */
 :root {
@@ -1398,6 +1415,7 @@ dialog {
     grid-template-columns: minmax(0, 1fr) minmax(0, auto);
   }
   main {
+    display: block;
     width: 100%;
     --wheel-column: minmax(0, 1fr);
     --panel-column: minmax(0, 1fr);
@@ -1498,10 +1516,29 @@ dialog {
     margin-inline: 16px;
   }
   .admin-table {
-    min-width: 620px;
+    min-width: 560px;
+  }
+  .inventory-footnote {
+    font-size: 11px;
   }
 }
 @media (min-width: 1201px) {
+  .app {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+  main {
+    height: calc(100dvh - 117px);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .machine {
+    width: min(100%, 680px, calc(100dvh - 312px));
+    max-width: none;
+  }
+  .prize-strip,
+  footer {
+    display: none;
+  }
   header {
     min-height: 116px;
   }
@@ -1510,7 +1547,7 @@ dialog {
     grid-template-columns: 150px minmax(0, 1fr);
     align-items: center;
     column-gap: 28px;
-    padding-bottom: 0;
+    padding: 0 340px 0 0;
   }
   .brand {
     width: 150px;
