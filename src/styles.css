@@ -1503,21 +1503,24 @@ dialog {
 }
 @media (min-width: 1201px) {
   header {
-    min-height: 144px;
+    min-height: 116px;
   }
   .header-layout {
-    min-height: 144px;
-    align-items: end;
-    padding-bottom: var(--space-4);
+    min-height: 116px;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 28px;
+    padding-bottom: 0;
   }
   .brand {
+    width: 150px;
     align-self: center;
   }
   .title {
-    align-self: end;
+    align-self: center;
   }
   nav {
-    top: var(--space-4);
-    transform: none;
+    top: 50%;
+    transform: translateY(-50%);
   }
 }
