@@ -114,14 +114,14 @@ export const BASE_PRIZES: BackendPrize[] = [
   },
   {
     id: "shirt",
-    name: "BAJU HOWELL",
-    description: "Merchandise eksklusif: Kaos / Baju Howell",
+    name: "KAOS HOWELL",
+    description: "Kaos eksklusif resmi HOWELL.",
     stock: 100,
     enabled: true,
     baseWeight: 10,
     icon: "shirt",
-    image: "/spin-wheel/assets/baju-howell.png",
-    wheelLines: ["BAJU", "HOWELL"],
+    image: "assets/baju-howell.png",
+    wheelLines: ["KAOS", "HOWELL"],
   },
   {
     id: "cable",
@@ -199,6 +199,7 @@ export class BackendEngine {
 
   private loadState(override?: Partial<BackendState>): BackendState {
     if (override && override.prizes) {
+      this.migrateShirtPrize(override.prizes);
       return {
         version: 1,
         prizes: override.prizes,
@@ -215,6 +216,9 @@ export class BackendEngine {
         if (parsed.version === 1 && Array.isArray(parsed.prizes)) {
           if (!parsed.segments || parsed.segments.length !== 7) {
             parsed.segments = [...WHEEL_7_SEGMENTS];
+          }
+          if (Array.isArray(parsed.prizes)) {
+            this.migrateShirtPrize(parsed.prizes);
           }
           // Re-populate processedRequests cache from saved spins
           if (Array.isArray(parsed.spins)) {
@@ -238,6 +242,15 @@ export class BackendEngine {
       spins: [],
       dailyTwsClaims: {},
     };
+  }
+
+  private migrateShirtPrize(prizes: BackendPrize[]): void {
+    const shirt = prizes.find((prize) => prize.id === "shirt");
+    if (!shirt) return;
+    shirt.name = "KAOS HOWELL";
+    shirt.description = "Kaos eksklusif resmi HOWELL.";
+    shirt.image = "assets/baju-howell.png";
+    shirt.wheelLines = ["KAOS", "HOWELL"];
   }
 
   private async persistState(): Promise<void> {

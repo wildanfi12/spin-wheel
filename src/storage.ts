@@ -29,6 +29,14 @@ export async function mutate(fn: (s: State) => void) {
     }
   }
 
+  const shirt = s.prizes.find((prize) => prize.id === "shirt");
+  if (shirt) {
+    shirt.name = "KAOS HOWELL";
+    shirt.description = "Kaos eksklusif resmi HOWELL.";
+    shirt.image = `${import.meta.env.BASE_URL}assets/baju-howell.png`;
+    shirt.wheelLines = ["KAOS", "HOWELL"];
+  }
+
   try {
     fn(s);
     validate(s);

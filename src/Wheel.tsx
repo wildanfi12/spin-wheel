@@ -42,7 +42,7 @@ const sectorColors = [
   "#FFFFFF", // 1: VOUCHER DISKON 20% (White)
   "#FFD600", // 2: EARPHONE HW03 (Howell Yellow)
   "#FFFFFF", // 3: KABEL HDMI 4K (White)
-  "#FFD600", // 4: BAJU HOWELL (Howell Yellow)
+  "#FFD600", // 4: KAOS HOWELL (Howell Yellow)
   "#FFFFFF", // 5: KABEL DATA 4 IN 1 (White)
   "#FFB800", // 6: PAYUNG HOWELL (Warm Gold)
 ];

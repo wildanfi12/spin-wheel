@@ -99,14 +99,14 @@ export const initial = (): State => ({
     },
     {
       id: "shirt",
-      name: "BAJU HOWELL",
-      description: "Merchandise eksklusif: Kaos / Baju Howell",
+      name: "KAOS HOWELL",
+      description: "Kaos eksklusif resmi HOWELL.",
       icon: "shirt",
       stock: 100,
       enabled: true,
       weight: 10,
       image: `${import.meta.env.BASE_URL}assets/baju-howell.png`,
-      wheelLines: ["BAJU", "HOWELL"],
+      wheelLines: ["KAOS", "HOWELL"],
     },
     {
       id: "cable",
