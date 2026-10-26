@@ -38,13 +38,13 @@ export function PrizeIcon({
 }
 
 const sectorColors = [
-  "#FFD600", // 0: TWS HW01 (Howell Yellow)
-  "#FFFFFF", // 1: VOUCHER DISKON 20% (White)
-  "#FFD600", // 2: EARPHONE HW03 (Howell Yellow)
-  "#FFFFFF", // 3: KABEL HDMI 4K (White)
-  "#FFD600", // 4: KAOS HOWELL (Howell Yellow)
-  "#FFFFFF", // 5: KABEL DATA 4 IN 1 (White)
-  "#FFB800", // 6: PAYUNG HOWELL (Warm Gold)
+  "#FFFFFF", // 0: TWS HW01
+  "#FFD600", // 1: VOUCHER DISKON 20%
+  "#FFFFFF", // 2: EARPHONE HW03
+  "#FFD600", // 3: KABEL HDMI 4K
+  "#FFFFFF", // 4: KAOS HOWELL
+  "#FFD600", // 5: KABEL DATA 4 IN 1
+  "#FFFFFF", // 6: PAYUNG HOWELL
 ];
 
 export const Wheel = forwardRef<
