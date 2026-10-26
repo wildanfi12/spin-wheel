@@ -7,11 +7,14 @@ import {
   X,
   Download,
   Zap,
+  Shield,
 } from "lucide-react";
+import { AdminDashboard } from "./AdminDashboard";
+import { requestSpin } from "./api";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
-import { available, reserve, transition } from "./engine";
+import { available, transition } from "./engine";
 import { read, mutate } from "./storage";
 import { tone, fanfare, chargingAudio } from "./audio";
 import {
@@ -38,6 +41,7 @@ export default function App() {
   const [releasedPower, setReleasedPower] = useState(0);
   const [sound, setSound] = useState(false);
   const [history, setHistory] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Spin>();
   const [easy, setEasy] = useState(false);
@@ -158,23 +162,21 @@ export default function App() {
     if (!canRelease(phaseRef.current) || !state) return;
     change("SPINNING");
     try {
-      let selected!: Spin;
       const previous = angle.current;
-      const saved = await mutate((s) => {
-        const randomVal =
-          crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
-        selected = reserve(s, randomVal);
-        let rot = powerRotationFor(
-          selected.segment,
-          selected.segments.length,
-          previous,
-          power,
-        );
-        while (rot < previous + 360) {
-          rot += 360;
-        }
-        selected.rotation = rot;
+      const { spin: selected, savedState: saved } = await requestSpin({
+        sessionId: state.session.id,
+        clientRequestId: crypto.randomUUID(),
       });
+      let rot = powerRotationFor(
+        selected.segment,
+        selected.segments.length,
+        previous,
+        power,
+      );
+      while (rot < previous + 360) {
+        rot += 360;
+      }
+      selected.rotation = rot;
       setState(saved);
       setResult(selected);
       const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -335,6 +337,13 @@ export default function App() {
           >
             {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
             <span>{sound ? "ON" : "OFF"}</span>
+          </button>
+          <button
+            onClick={() => setAdminOpen(true)}
+            title="Dashboard Admin & Kontrol Kuota TWS"
+          >
+            <Shield size={18} />
+            <span>ADMIN</span>
           </button>
           <button
             disabled={phase !== "IDLE"}
@@ -647,6 +656,7 @@ export default function App() {
           )}
         </div>
       </dialog>
+      <AdminDashboard open={adminOpen} onClose={() => setAdminOpen(false)} />
     </div>
   );
 }

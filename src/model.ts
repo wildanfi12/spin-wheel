@@ -10,6 +10,7 @@ export type Prize = {
   sku?: string;
   wheelLines?: string[];
 };
+
 export type Spin = {
   id: string;
   sessionId: string;
@@ -25,12 +26,15 @@ export type Spin = {
   segments: string[];
   rotation: number;
   events: { at: string; action: string }[];
+  dateWib?: string;
 };
+
 export type State = {
   version: 1;
   prizes: Prize[];
   segments: string[];
   spins: Spin[];
+  dailyTwsClaims?: Record<string, { spinId: string; wonAt: string; code: string }>;
   session: { id: string; spinId?: string };
   settings: {
     headline: string;
@@ -42,20 +46,21 @@ export type State = {
     kiosk: boolean;
   };
 };
+
 export const initial = (): State => ({
   version: 1,
   prizes: [
     {
       id: "tws",
-      name: "TWS HOWELL",
+      name: "TWS HW01",
       sku: "HW01",
-      description: "Grand Prize Utama: TWS Howell (Rp 419.000)",
+      description: "Grand Prize Utama: TWS Howell HW01 (Rp 419.000)",
       icon: "trophy",
       stock: 30,
       enabled: true,
       weight: 3,
       image: `${import.meta.env.BASE_URL}assets/tws-howell.png`,
-      wheelLines: ["TWS", "HOWELL"],
+      wheelLines: ["TWS", "HW01"],
     },
     {
       id: "discount",
@@ -70,15 +75,15 @@ export const initial = (): State => ({
     },
     {
       id: "earphone",
-      name: "EARPHONE KABEL",
+      name: "EARPHONE HW03",
       sku: "HW03",
-      description: "Volume Winner: Earphone Kabel Howell (Rp 31.000)",
+      description: "Volume Winner: Earphone HW03 Howell (Rp 31.000)",
       icon: "headphones",
       stock: 250,
       enabled: true,
       weight: 25,
       image: `${import.meta.env.BASE_URL}assets/earphone.png`,
-      wheelLines: ["EARPHONE", "KABEL"],
+      wheelLines: ["EARPHONE", "HW03"],
     },
     {
       id: "hdmi",
@@ -133,10 +138,16 @@ export const initial = (): State => ({
     "earphone",
     "hdmi",
     "shirt",
+    "discount",
+    "earphone",
     "cable",
     "umbrella",
+    "earphone",
+    "hdmi",
+    "discount",
   ],
   spins: [],
+  dailyTwsClaims: {},
   session: { id: crypto.randomUUID() },
   settings: {
     headline: "HOWELL SPIN & WIN",
@@ -149,6 +160,7 @@ export const initial = (): State => ({
     kiosk: false,
   },
 });
+
 export function validate(s: State) {
   if (
     s?.version !== 1 ||
@@ -179,55 +191,63 @@ export function validate(s: State) {
       typeof p.image !== "string" ||
       !safeImage(p.image)
     )
-      throw Error("Nama, stok, bobot, atau gambar hadiah tidak valid.");
-  if (s.segments.some((id) => !s.prizes.some((p) => p.id === id)))
-    throw Error("Segmen harus mengacu pada hadiah yang tersedia.");
-  if (
-    !Number.isFinite(s.settings.volume) ||
-    s.settings.volume < 0 ||
-    s.settings.volume > 1 ||
-    !safeImage(s.settings.logo) ||
-    ["headline", "subtitle", "terms", "expiry"].some(
-      (k) => typeof s.settings[k as keyof State["settings"]] !== "string",
-    )
-  )
-    throw Error("Pengaturan tidak valid.");
-  const ids = new Set<string>(),
-    codes = new Set<string>(),
-    sessions = new Set<string>();
+      throw Error("Konfigurasi hadiah tidak valid.");
+  for (const id of s.segments)
+    if (!s.prizes.some((p) => p.id === id))
+      throw Error("ID segmen tidak terdaftar pada hadiah.");
+  const seenSpins = new Set<string>();
   for (const r of s.spins) {
     if (
       !r.id ||
-      ids.has(r.id) ||
-      codes.has(r.code) ||
-      sessions.has(r.sessionId) ||
-      !/^HW-(?:[A-F0-9]{12}|\d{6,9})$/.test(r.code) ||
-      !Number.isFinite(Date.parse(r.at)) ||
-      !["Won", "Pending Claim", "Claimed", "Voided"].includes(r.status) ||
-      !s.prizes.some((p) => p.id === r.prizeId) ||
-      !Array.isArray(r.events) ||
+      !r.sessionId ||
+      !r.prizeId ||
+      !r.prizeName ||
+      !r.code ||
+      !r.at ||
+      !Number.isSafeInteger(r.segment) ||
+      r.segment < 0 ||
       !Array.isArray(r.segments) ||
-      !r.segments.length ||
-      r.segments.some((id) => !s.prizes.some((p) => p.id === id)) ||
-      r.segments[r.segment] !== r.prizeId ||
-      !Number.isFinite(r.rotation) ||
-      !safeImage(r.image)
+      !["Won", "Pending Claim", "Claimed", "Voided"].includes(r.status) ||
+      seenSpins.has(r.id)
     )
-      throw Error("Histori backup tidak valid.");
-    ids.add(r.id);
-    codes.add(r.code);
-    sessions.add(r.sessionId);
+      throw Error("Riwayat putaran korup.");
+    seenSpins.add(r.id);
   }
-  if (
-    s.session.spinId &&
-    !s.spins.some(
-      (r) => r.id === s.session.spinId && r.sessionId === s.session.id,
-    )
-  )
-    throw Error("Sesi backup tidak konsisten.");
 }
-export const safeImage = (s: string) =>
-  typeof s === "string" &&
-  (!s ||
-    /^\/spin-wheel\/assets\/[a-zA-Z0-9._-]+\.png$/.test(s) ||
-    /^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(s));
+
+export function powerDuration(power: number): number {
+  const p = Math.max(0, Math.min(1, power));
+  return 5500 + p * 1500;
+}
+
+export function powerRotationFor(
+  index: number,
+  count: number,
+  from = 0,
+  power = 1,
+) {
+  const p = Math.max(0, Math.min(1, power));
+  const minTurns = 5;
+  const maxTurns = 9;
+  const turns = Math.round(minTurns + p * (maxTurns - minTurns));
+  const segmentAngle = 360 / count;
+  const targetOffset = (360 - index * segmentAngle) % 360;
+  const currentOffset = ((from % 360) + 360) % 360;
+  let delta = targetOffset - currentOffset;
+  if (delta < 0) delta += 360;
+  return from + turns * 360 + delta;
+}
+
+function safeImage(v: string) {
+  if (!v) return true;
+  if (
+    v.startsWith(import.meta.env.BASE_URL) ||
+    v.startsWith("http://") ||
+    v.startsWith("https://") ||
+    v.startsWith("assets/") ||
+    v.startsWith("/assets/") ||
+    v.startsWith("/spin-wheel/assets/")
+  )
+    return true;
+  return /^data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(v);
+}

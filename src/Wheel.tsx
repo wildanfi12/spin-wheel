@@ -38,13 +38,18 @@ export function PrizeIcon({
 }
 
 const sectorColors = [
-  "#FFD600", // 0: TWS HOWELL (Howell Yellow)
+  "#FFD600", // 0: TWS HW01 (Howell Yellow)
   "#FFFFFF", // 1: VOUCHER DISKON 20% (White)
   "#FFD600", // 2: EARPHONE HW03 (Howell Yellow)
   "#FFFFFF", // 3: KABEL HDMI 4K (White)
   "#FFD600", // 4: BAJU HOWELL (Howell Yellow)
-  "#FFFFFF", // 5: KABEL DATA 4 IN 1 (White)
-  "#FFB800", // 6: PAYUNG HOWELL (Warm Gold)
+  "#FFFFFF", // 5: VOUCHER DISKON 20% (White)
+  "#FFD600", // 6: EARPHONE HW03 (Howell Yellow)
+  "#FFFFFF", // 7: KABEL DATA 4 IN 1 AC01 (White)
+  "#FFD600", // 8: PAYUNG HOWELL (Howell Yellow)
+  "#FFFFFF", // 9: EARPHONE HW03 (White)
+  "#FFD600", // 10: KABEL HDMI 4K (Howell Yellow)
+  "#FFFFFF", // 11: VOUCHER DISKON 20% (White)
 ];
 
 export const Wheel = forwardRef<
@@ -154,11 +159,11 @@ export const Wheel = forwardRef<
                   x="300"
                   y={lines.length > 2 ? 72 : 78}
                   textAnchor="middle"
-                  fontSize={hasLongLine ? "12" : "13.5"}
+                  fontSize={hasLongLine ? "11" : "12.5"}
                   fontWeight="800"
                 >
                   {lines.map((w, j) => (
-                    <tspan key={j} x="300" dy={j ? 16 : 0}>
+                    <tspan key={j} x="300" dy={j ? 15 : 0}>
                       {w}
                     </tspan>
                   ))}
@@ -166,10 +171,10 @@ export const Wheel = forwardRef<
                 {p.image ? (
                   <image
                     href={p.image}
-                    x="270"
-                    y="134"
-                    width="60"
-                    height="60"
+                    x="272"
+                    y="136"
+                    width="56"
+                    height="56"
                     preserveAspectRatio="xMidYMid meet"
                   />
                 ) : (
@@ -178,7 +183,7 @@ export const Wheel = forwardRef<
                     transform="translate(280 144)"
                     aria-hidden="true"
                   >
-                    <PrizeIcon icon={p.icon} size={40} />
+                    <PrizeIcon icon={p.icon} size={38} />
                   </g>
                 )}
               </g>
