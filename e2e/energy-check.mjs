@@ -15,6 +15,10 @@ await page.waitForFunction(() => !document.querySelector(".charge-button").disab
 assert.equal(await page.locator(".wheel-disc foreignObject").count(), 0);
 assert.equal(await page.locator(".wheel-disc path").count(), 6);
 assert.equal(await page.locator(".wheel-disc image").count(), 6);
+assert.equal(
+  await page.locator('.wheel-disc image.prize-image-shirt').getAttribute("href"),
+  "/assets/baju-howell.png",
+);
 
 const energy = () => page.locator(".energy-number").evaluate((node) => parseInt(node.textContent, 10));
 const rotation = () => page.locator(".wheel-disc").evaluate((node) => Number(node.style.transform.match(/rotate\((.*)deg\)/)?.[1] || 0));

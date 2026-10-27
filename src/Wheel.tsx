@@ -132,6 +132,7 @@ export const Wheel = forwardRef<
             a = ((i * angle - angle / 2 - 90) * Math.PI) / 180,
             b = ((i * angle + angle / 2 - 90) * Math.PI) / 180;
           const fillColor = WHEEL_SECTOR_COLORS[i % WHEEL_SECTOR_COLORS.length];
+          const isShirtPrize = id === "shirt";
           const lines =
             p.wheelLines ||
             (p.name.includes("\n") ? p.name.split("\n") : p.name.split(" "));
@@ -165,10 +166,11 @@ export const Wheel = forwardRef<
                 {p.image ? (
                   <image
                     href={p.image}
-                    x="262"
-                    y="130"
-                    width="76"
-                    height="76"
+                    x={isShirtPrize ? "250" : "262"}
+                    y={isShirtPrize ? "120" : "130"}
+                    width={isShirtPrize ? "100" : "76"}
+                    height={isShirtPrize ? "100" : "76"}
+                    className={isShirtPrize ? "prize-image prize-image-shirt" : "prize-image"}
                     preserveAspectRatio="xMidYMid meet"
                   />
                 ) : (
