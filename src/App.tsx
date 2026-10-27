@@ -321,10 +321,6 @@ export default function App() {
             src={`${import.meta.env.BASE_URL}assets/howell-white.png`}
             alt="HOWELL"
           />
-          <div className="title header-title">
-            <h1>SPIN & WIN</h1>
-            <p>PUTAR RODANYA, MENANGKAN HADIAHNYA!</p>
-          </div>
         </div>
         <nav>
           <button
@@ -404,10 +400,6 @@ export default function App() {
             )}
           </div>
           <aside className="telemetry">
-            <div className="title telemetry-title">
-              <h1>SPIN & WIN</h1>
-              <p>PUTAR RODANYA, MENANGKAN HADIAHNYA!</p>
-            </div>
             <div className="eyebrow">ENERGY LEVEL</div>
             <div className="energy-number">
               {Math.round(displayedPower * 100)}

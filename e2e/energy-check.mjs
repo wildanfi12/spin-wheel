@@ -1,7 +1,7 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, channel: "chrome" });
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, reducedMotion: "reduce" });
 const page = await context.newPage();
 const errors = [];
@@ -92,21 +92,23 @@ for (const viewport of [
   const layout = await page.evaluate(() => {
     const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
     const visibleTitle = [...document.querySelectorAll(".title")].find((element) => getComputedStyle(element).display !== "none");
-    const title = visibleTitle.getBoundingClientRect(), nav = rect("header nav"), brand = rect(".brand"), wheel = rect(".wheel-shell"), button = rect(".charge-button"), telemetry = rect(".telemetry");
+    const title = visibleTitle ? visibleTitle.getBoundingClientRect() : null;
+    const nav = rect("header nav"), brand = rect(".brand"), wheel = rect(".wheel-shell"), button = rect(".charge-button"), telemetry = rect(".telemetry");
     const matrix = new DOMMatrix(getComputedStyle(document.querySelector(".charge-button")).transform);
     return {
-      titleLeft: title.left,
-      titleRight: title.right,
-      titleTop: title.top,
-      titleBottom: title.bottom,
+      titleLeft: title ? title.left : 0,
+      titleRight: title ? title.right : 0,
+      titleTop: title ? title.top : 0,
+      titleBottom: title ? title.bottom : 0,
+      hasTitle: Boolean(visibleTitle),
       navLeft: nav.left,
       navRight: nav.right,
       navTop: nav.top,
       navBottom: nav.bottom,
       brandRight: brand.right,
       brandLeft: brand.left,
-      titleAlign: getComputedStyle(visibleTitle).textAlign,
-      titleInTelemetry: visibleTitle.classList.contains("telemetry-title"),
+      titleAlign: visibleTitle ? getComputedStyle(visibleTitle).textAlign : "left",
+      titleInTelemetry: visibleTitle ? visibleTitle.classList.contains("telemetry-title") : false,
       documentHeight: document.documentElement.scrollHeight,
       viewportHeight: document.documentElement.clientHeight,
       documentWidth: document.documentElement.scrollWidth,
@@ -128,9 +130,11 @@ for (const viewport of [
       overflow: document.documentElement.scrollWidth - innerWidth,
     };
   });
-  assert.equal(layout.titleAlign, "left");
-  assert.ok(layout.titleLeft >= 0);
-  assert.ok(layout.titleBottom <= layout.navTop || layout.titleTop >= layout.navBottom || layout.titleRight <= layout.navLeft || layout.titleLeft >= layout.navRight, `header title overlaps navigation at ${viewport.width}px`);
+  if (layout.hasTitle) {
+    assert.equal(layout.titleAlign, "left");
+    assert.ok(layout.titleLeft >= 0);
+    assert.ok(layout.titleBottom <= layout.navTop || layout.titleTop >= layout.navBottom || layout.titleRight <= layout.navLeft || layout.titleLeft >= layout.navRight, `header title overlaps navigation at ${viewport.width}px`);
+  }
   assert.ok(layout.brandRight <= layout.navLeft || layout.brandLeft >= layout.navRight, `brand overlaps navigation at ${viewport.width}px`);
   assert.notEqual(layout.telemetryDisplay, "none");
   assert.ok(Math.abs(layout.wheelWidth - layout.wheelHeight) <= 1);
@@ -141,8 +145,7 @@ for (const viewport of [
   assert.ok(layout.wheelTop >= layout.headerBottom - 1);
   assert.ok(layout.documentWidth <= layout.viewportWidth, `horizontal overflow at ${viewport.width}px`);
   if (viewport.width >= 1280) {
-    assert.equal(layout.titleInTelemetry, true);
-    assert.ok(Math.abs(layout.titleLeft - layout.telemetryLeft) <= 1.5, `title is not aligned with Energy Level at ${viewport.width}px`);
+    assert.equal(layout.hasTitle, false, `desktop title should stay hidden at ${viewport.width}px`);
     assert.ok(layout.documentHeight <= layout.viewportHeight, `vertical overflow at ${viewport.width}x${viewport.height}: ${layout.documentHeight}px`);
     assert.ok(layout.chargeBottom <= viewport.height + 1, `charge control clipped at ${viewport.width}x${viewport.height}`);
     assert.ok(layout.modeBottom <= viewport.height + 1, `no-hold option clipped at ${viewport.width}x${viewport.height}`);
@@ -160,5 +163,5 @@ assert.ok(historyBounds);
 assert.ok(historyBounds.x >= 0 && historyBounds.x + historyBounds.width <= 320);
 assert.ok(historyBounds.y >= 0 && historyBounds.y + historyBounds.height <= 720);
 assert.deepEqual(errors, []);
-console.log("PASS: title aligned with Energy Level on desktop, 6-sector wheel, full-charge-only spin, and responsive layout at 320/375/390/430/768/1000/1280x720/1366x768/1440/1600x900/1920x1080/2560x1440/3840x2160; desktop/TV viewport fits with no scroll or console errors.");
+console.log("PASS: title/subtitle hidden, six-sector wheel with supplied shirt asset, full-charge-only spin, and responsive layout at 320/375/390/430/768/1000/1280x720/1366x768/1440/1600x900/1920x1080/2560x1440/3840x2160; desktop/TV viewport fits with no scroll or console errors.");
 await browser.close();
