@@ -40,7 +40,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("IDLE");
   const [progress, setProgress] = useState(0);
   const [releasedPower, setReleasedPower] = useState(0);
-  const [sound, setSound] = useState(false);
+  const [sound, setSound] = useState(true);
   const [history, setHistory] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [testResult, setTestResult] = useState(false);

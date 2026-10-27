@@ -40,6 +40,9 @@ or decrement stock. The password verifier is
 included in the public client bundle, so this gate only prevents casual access; it
 is not secure authentication and should not protect sensitive information. A true
 server-side admin login and shared inventory require backend hosting.
+The login form can remember access on the current browser profile for 30 days; it
+stores only an expiry timestamp, never the password. Sound is enabled by default
+when the page opens.
 
 This is a static Pages deployment: IndexedDB data is per browser profile and origin.
 Different devices or browser profiles do not share inventory/history. The previous

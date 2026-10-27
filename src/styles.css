@@ -911,6 +911,22 @@ dialog::backdrop {
   background: #090909;
   color: #fff;
 }
+.admin-login .admin-remember {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  color: #bbb;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.admin-login .admin-remember input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #ffd600;
+}
 .admin-login-submit {
   padding: 12px;
   border: 0;

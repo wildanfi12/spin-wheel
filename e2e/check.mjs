@@ -9,7 +9,10 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const adminPassword = process.env.HOWELL_ADMIN_PASSWORD;
 assert.ok(adminPassword, "Set HOWELL_ADMIN_PASSWORD to exercise the local admin gate.");
-async function loginToAdmin() {
+async function loginToAdmin({ remember = false } = {}) {
+  if (!(await page.locator("#admin-password").isVisible())) return;
+  if (remember)
+    await page.getByLabel("Ingat saya selama 30 hari di perangkat ini").check();
   await page.locator("#admin-password").fill(adminPassword);
   await page.getByRole("button", { name: "MASUK" }).click();
   await page.locator(".inventory-table tbody tr").first().waitFor();
@@ -21,6 +24,10 @@ page.on("console", (m) => {
 });
 await page.goto(process.env.SPIN_WHEEL_URL || "http://127.0.0.1:5173/spin-wheel/");
 await page.locator(".wheel-disc path").first().waitFor();
+assert.equal(
+  await page.getByRole("button", { name: "Matikan suara" }).getAttribute("aria-pressed"),
+  "true",
+);
 assert.equal(await page.locator(".wheel-disc path").count(), 6);
 const charge = page.locator(".charge-button");
 await charge.waitFor();
@@ -72,11 +79,15 @@ await page.waitForFunction(() =>
 );
 await page.getByRole("button", { name: "ADMIN" }).click();
 await page.locator(".admin-dialog").waitFor({ state: "visible" });
-await loginToAdmin();
+await loginToAdmin({ remember: true });
 assert.equal(await page.locator(".inventory-table tbody tr").count(), 6);
 assert.match(await page.locator(".admin-dialog").innerText(), /Stok Hadiah Harian/);
 await page.getByRole("button", { name: "Tutup dashboard" }).click();
 await page.reload();
+await page.getByRole("button", { name: "ADMIN" }).click();
+await page.locator(".inventory-table tbody tr").first().waitFor();
+assert.equal(await page.locator("#admin-password").count(), 0);
+await page.getByRole("button", { name: "Tutup dashboard" }).click();
 await page.getByRole("button", { name: "HISTORY" }).click();
 assert.match(
   await page.locator(".history-dialog").innerText(),

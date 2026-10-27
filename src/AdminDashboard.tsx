@@ -10,7 +10,12 @@ import {
   X,
 } from "lucide-react";
 import { fetchAdminStatus, type AdminStatusResponse } from "./api";
-import { verifyLocalAdminPassword } from "./adminAccess";
+import {
+  clearRememberedAdminAccess,
+  hasRememberedAdminAccess,
+  rememberAdminAccess,
+  verifyLocalAdminPassword,
+} from "./adminAccess";
 
 interface AdminDashboardProps {
   open: boolean;
@@ -27,6 +32,7 @@ export function AdminDashboard({
   const [error, setError] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
@@ -47,13 +53,17 @@ export function AdminDashboard({
     const dialog = dialogRef.current;
     if (!open) {
       if (dialog?.open) dialog.close();
-      setAuthenticated(false);
+      if (!hasRememberedAdminAccess()) setAuthenticated(false);
       setPassword("");
       setLoginError("");
       return;
     }
 
     if (dialog && !dialog.open) dialog.showModal();
+    if (!authenticated && hasRememberedAdminAccess()) {
+      setAuthenticated(true);
+      return;
+    }
     if (!authenticated) return;
     void loadData();
     const interval = window.setInterval(() => void loadData(), 5000);
@@ -68,6 +78,7 @@ export function AdminDashboard({
     }
     try {
       if (await verifyLocalAdminPassword(password)) {
+        rememberAdminAccess(rememberMe);
         setAuthenticated(true);
         setFailedAttempts(0);
         setPassword("");
@@ -125,8 +136,10 @@ export function AdminDashboard({
                   title="Keluar dari admin"
                   aria-label="Keluar dari admin"
                   onClick={() => {
+                    clearRememberedAdminAccess();
                     setAuthenticated(false);
                     setData(null);
+                    setRememberMe(false);
                   }}
                 >
                   <LogOut size={14} />
@@ -158,6 +171,14 @@ export function AdminDashboard({
               autoFocus
               required
             />
+            <label className="admin-remember">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+              />
+              <span>Ingat saya selama 30 hari di perangkat ini</span>
+            </label>
             {loginError && <div className="admin-error" role="alert">{loginError}</div>}
             <button className="admin-login-submit" type="submit">MASUK</button>
             <small className="local-lock-note">
