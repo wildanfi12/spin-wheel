@@ -2,7 +2,7 @@ import type { Spin, State } from "./model";
 import { getDailyInventory, INVENTORY_POLICY } from "./inventory";
 import { getWibDate, getWibDateDisplay, getWibTimeString, getNextResetTime, getResetCountdown } from "./timezone";
 import { mutate, read } from "./storage";
-import { reserve } from "./engine";
+import { previewSpin, reserve } from "./engine";
 
 export interface AdminStatusResponse {
   success: boolean;
@@ -67,4 +67,14 @@ export async function requestSpin(params: {
   });
 
   return { spin: selected, savedState };
+}
+
+/** Local-only practice spin. The returned result is intentionally not saved. */
+export async function requestTestSpin(params: { sessionId: string }): Promise<Spin> {
+  const s = await read();
+  if (s.session.id !== params.sessionId) {
+    throw new Error("Sesi berubah. Muat ulang halaman sebelum memutar lagi.");
+  }
+  const random = crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+  return previewSpin(s, random);
 }

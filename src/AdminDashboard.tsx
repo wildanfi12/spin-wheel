@@ -1,24 +1,40 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   Clock,
+  FlaskConical,
+  LockKeyhole,
+  LogOut,
   PackageCheck,
   RefreshCw,
   Shield,
   X,
 } from "lucide-react";
 import { fetchAdminStatus, type AdminStatusResponse } from "./api";
+import { verifyLocalAdminPassword } from "./adminAccess";
 
 interface AdminDashboardProps {
   open: boolean;
   onClose: () => void;
+  testMode: boolean;
+  onTestModeChange: (enabled: boolean) => void;
 }
 
-export function AdminDashboard({ open, onClose }: AdminDashboardProps) {
+export function AdminDashboard({
+  open,
+  onClose,
+  testMode,
+  onTestModeChange,
+}: AdminDashboardProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [data, setData] = useState<AdminStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
@@ -36,14 +52,44 @@ export function AdminDashboard({ open, onClose }: AdminDashboardProps) {
     const dialog = dialogRef.current;
     if (!open) {
       if (dialog?.open) dialog.close();
+      setAuthenticated(false);
+      setPassword("");
+      setLoginError("");
       return;
     }
 
     if (dialog && !dialog.open) dialog.showModal();
+    if (!authenticated) return;
     void loadData();
     const interval = window.setInterval(() => void loadData(), 5000);
     return () => window.clearInterval(interval);
-  }, [open]);
+  }, [open, authenticated]);
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (Date.now() < lockedUntil) {
+      setLoginError("Terlalu banyak percobaan. Coba lagi sebentar.");
+      return;
+    }
+    try {
+      if (await verifyLocalAdminPassword(password)) {
+        setAuthenticated(true);
+        setFailedAttempts(0);
+        setPassword("");
+        setLoginError("");
+      } else {
+        const nextAttempts = failedAttempts + 1;
+        setFailedAttempts(nextAttempts);
+        if (nextAttempts >= 5) {
+          setLockedUntil(Date.now() + 30_000);
+          setFailedAttempts(0);
+        }
+        setLoginError("Password tidak cocok.");
+      }
+    } catch {
+      setLoginError("Browser ini tidak mendukung verifikasi password.");
+    }
+  }
 
   const totalLimit = data?.inventory.reduce((sum, row) => sum + row.limit, 0) ?? 0;
   const totalRemaining =
@@ -68,15 +114,31 @@ export function AdminDashboard({ open, onClose }: AdminDashboardProps) {
             <h2 id="admin-title">Stok Hadiah Harian</h2>
           </div>
           <div className="admin-header-actions">
-            <button
-              className="refresh-btn"
-              onClick={() => void loadData()}
-              disabled={loading}
-              title="Perbarui data"
-              aria-label="Perbarui stok"
-            >
-              <RefreshCw size={14} className={loading ? "spin-icon" : ""} />
-            </button>
+            {authenticated && (
+              <>
+                <button
+                  className="refresh-btn"
+                  onClick={() => void loadData()}
+                  disabled={loading}
+                  title="Perbarui data"
+                  aria-label="Perbarui stok"
+                >
+                  <RefreshCw size={14} className={loading ? "spin-icon" : ""} />
+                </button>
+                <button
+                  className="refresh-btn"
+                  title="Keluar dari admin"
+                  aria-label="Keluar dari admin"
+                  onClick={() => {
+                    onTestModeChange(false);
+                    setAuthenticated(false);
+                    setData(null);
+                  }}
+                >
+                  <LogOut size={14} />
+                </button>
+              </>
+            )}
             <button
               className="close-btn"
               onClick={onClose}
@@ -87,6 +149,43 @@ export function AdminDashboard({ open, onClose }: AdminDashboardProps) {
           </div>
         </header>
 
+        {!authenticated ? (
+          <form className="admin-login" onSubmit={(event) => void login(event)}>
+            <div className="admin-login-icon"><LockKeyhole size={22} /></div>
+            <h3>Masuk ke Admin</h3>
+            <p>Masukkan password untuk melihat stok dan mengaktifkan mode test.</p>
+            <label htmlFor="admin-password">Password admin</label>
+            <input
+              id="admin-password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoFocus
+              required
+            />
+            {loginError && <div className="admin-error" role="alert">{loginError}</div>}
+            <button className="admin-login-submit" type="submit">MASUK</button>
+            <small className="local-lock-note">
+              Kunci lokal perangkat. GitHub Pages tidak menyediakan autentikasi server-side.
+            </small>
+          </form>
+        ) : (
+          <>
+        <div className="admin-test-toggle">
+          <div>
+            <strong><FlaskConical size={16} /> Mode test spin</strong>
+            <small>Hasil test tidak masuk history dan tidak mengurangi stok.</small>
+          </div>
+          <button
+            type="button"
+            className={testMode ? "test-mode-switch active" : "test-mode-switch"}
+            aria-pressed={testMode}
+            onClick={() => onTestModeChange(!testMode)}
+          >
+            {testMode ? "AKTIF" : "MATI"}
+          </button>
+        </div>
         {error && (
           <div className="admin-error">
             <AlertTriangle size={16} /> {error}
@@ -173,6 +272,8 @@ export function AdminDashboard({ open, onClose }: AdminDashboardProps) {
               sudah keluar tetap tersedia di menu History.
             </p>
           </div>
+        )}
+          </>
         )}
       </div>
     </dialog>

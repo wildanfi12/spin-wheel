@@ -1,13 +1,25 @@
 ﻿import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+    : {}),
+});
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+const adminPassword = process.env.HOWELL_ADMIN_PASSWORD;
+assert.ok(adminPassword, "Set HOWELL_ADMIN_PASSWORD to exercise the local admin gate.");
+async function loginToAdmin() {
+  await page.locator("#admin-password").fill(adminPassword);
+  await page.getByRole("button", { name: "MASUK" }).click();
+  await page.locator(".inventory-table tbody tr").first().waitFor();
+}
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => {
   if (m.type() === "error") errors.push(m.text());
 });
-await page.goto("http://127.0.0.1:5173/spin-wheel/");
+await page.goto(process.env.SPIN_WHEEL_URL || "http://127.0.0.1:5173/spin-wheel/");
 await page.locator(".wheel-disc path").first().waitFor();
 assert.equal(await page.locator(".wheel-disc path").count(), 6);
 const charge = page.locator(".charge-button");
@@ -60,7 +72,7 @@ await page.waitForFunction(() =>
 );
 await page.getByRole("button", { name: "ADMIN" }).click();
 await page.locator(".admin-dialog").waitFor({ state: "visible" });
-await page.locator(".inventory-table tbody tr").first().waitFor();
+await loginToAdmin();
 assert.equal(await page.locator(".inventory-table tbody tr").count(), 6);
 assert.match(await page.locator(".admin-dialog").innerText(), /Stok Hadiah Harian/);
 await page.getByRole("button", { name: "Tutup dashboard" }).click();
@@ -94,7 +106,7 @@ const wheel = await page.locator(".wheel-shell").boundingBox();
 assert.ok(wheel.x >= 0 && wheel.x + wheel.width <= 390);
 await page.getByRole("button", { name: "ADMIN" }).click();
 await page.locator(".admin-dialog").waitFor({ state: "visible" });
-await page.locator(".inventory-table tbody tr").first().waitFor();
+await loginToAdmin();
 assert.equal(await page.locator(".inventory-table tbody tr").count(), 6);
 await page.getByRole("button", { name: "Tutup dashboard" }).click();
 await page.getByRole("button", { name: "HISTORY" }).click();
@@ -119,9 +131,48 @@ assert.match(await charge.innerText(), /RELEASE TO SPIN/);
 await page.keyboard.up("Enter");
 await page.waitForTimeout(7300);
 assert.equal(await page.locator(".win-dialog").isVisible(), true);
+await page.getByRole("button", { name: "SELESAI" }).click();
+await page.getByRole("button", { name: "ADMIN" }).click();
+await loginToAdmin();
+await page.getByRole("button", { name: "MATI" }).click();
+await page.getByRole("button", { name: "Tutup dashboard" }).click();
+await page.getByText("MODE TEST", { exact: true }).waitFor();
+const officialSpinCount = await page.evaluate(async () => {
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open("howell-booth", 1);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  return await new Promise((resolve) => {
+    const request = db.transaction("app").objectStore("app").get("state");
+    request.onsuccess = () => resolve(request.result.spins.length);
+  });
+});
+const testChargeBox = await charge.boundingBox();
+await page.mouse.move(testChargeBox.x + testChargeBox.width / 2, testChargeBox.y + testChargeBox.height / 2);
+await page.mouse.down();
+await page.waitForTimeout(1700);
+await page.mouse.up();
+await page.waitForTimeout(7300);
+assert.equal(await page.getByRole("heading", { name: "TEST SPIN" }).isVisible(), true);
+await page.getByRole("button", { name: "SELESAI" }).click();
+const spinsAfterTest = await page.evaluate(async () => {
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open("howell-booth", 1);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  return await new Promise((resolve) => {
+    const request = db.transaction("app").objectStore("app").get("state");
+    request.onsuccess = () => resolve(request.result.spins.length);
+  });
+});
+assert.equal(spinsAfterTest, officialSpinCount);
+await page.getByRole("button", { name: "Keluar" }).click();
+assert.equal(await page.getByText("MODE TEST", { exact: true }).count(), 0);
 assert.deepEqual(errors, []);
 console.log(
-  "PASS: early release, full hold/no auto-spin, spin accuracy, result, next session, history refresh, keyboard cancellation, accessible two-tap, 390px layout, console.",
+  "PASS: spin behavior, result and history, local admin gate, no-history test spin, keyboard cancellation, accessible two-tap, 390px layout, console.",
 );
 await browser.close();
 

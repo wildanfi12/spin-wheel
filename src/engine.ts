@@ -147,6 +147,15 @@ export function reserve(s: State, random: number, now: Date = new Date()): Spin 
   return reserveIndex(s, select(s, random, now).index, now);
 }
 
+/** Simulate a wheel result without mutating the operational state or ledger. */
+export function previewSpin(s: State, random: number, now: Date = new Date()): Spin {
+  const simulation = structuredClone(s);
+  // A practice run models a fresh test inventory without using the official ledger.
+  simulation.spins = [];
+  simulation.session = { id: crypto.randomUUID() };
+  return reserve(simulation, random, now);
+}
+
 export function reserveAt(s: State, index: number, now: Date = new Date()): Spin {
   return reserveIndex(s, index, now);
 }

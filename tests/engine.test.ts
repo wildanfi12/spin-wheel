@@ -4,6 +4,7 @@ import { initial, validate, type Spin } from "../src/model";
 import {
   select,
   reserve,
+  previewSpin,
   reserveAt,
   transition,
   rotationFor,
@@ -130,6 +131,25 @@ describe("six-prize inventory and wheel geometry", () => {
 });
 
 describe("atomic ledger, voids, and persistent sessions", () => {
+  it("creates a test spin without appending it to operational history or reducing stock", () => {
+    const date = new Date("2026-10-26T07:00:00.000Z");
+    const state = initial();
+    const dateWib = "2026-10-26";
+    state.spins = state.segments.flatMap((id) =>
+      Array.from({ length: DAILY_STOCK_LIMITS[id] }, (_, i) =>
+        historySpin(id, dateWib, i),
+      ),
+    );
+    const historyBefore = structuredClone(state.spins);
+    const result = previewSpin(state, 0.99, date);
+
+    expect(result.prizeId).toBe("discount");
+    expect(result.code).toMatch(/^HW-/);
+    expect(state.spins).toEqual(historyBefore);
+    expect(remainingDailyStock(state.spins, "discount", dateWib)).toBe(0);
+    expect(state.session.spinId).toBeUndefined();
+  });
+
   it("reserves once, counts issued stock from history, and void restores today's slot", () => {
     const date = new Date("2026-10-26T07:00:00.000Z");
     const dateWib = "2026-10-26";

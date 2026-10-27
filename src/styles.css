@@ -880,6 +880,105 @@ dialog::backdrop {
   flex-direction: column;
   max-height: 90vh;
 }
+.admin-login {
+  width: min(100% - 40px, 390px);
+  margin: 32px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-login-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: #ffd600;
+  background: #24200a;
+  border: 1px solid #514800;
+  border-radius: 12px;
+}
+.admin-login h3,
+.admin-login p { margin: 0; }
+.admin-login h3 { font-size: 20px; }
+.admin-login p,
+.local-lock-note { color: #999; font-size: 12px; line-height: 1.5; }
+.admin-login label { color: #bbb; font-size: 12px; font-weight: 700; }
+.admin-login input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #090909;
+  color: #fff;
+}
+.admin-login-submit {
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #ffd600;
+  color: #111;
+  font-weight: 800;
+  cursor: pointer;
+}
+.admin-login .admin-error { margin: 0; }
+.local-lock-note { margin-top: 4px; }
+.admin-test-toggle {
+  margin: 18px 24px 0;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #171717;
+  border: 1px solid #34302a;
+  border-radius: 10px;
+}
+.admin-test-toggle > div { display: grid; gap: 5px; }
+.admin-test-toggle strong { display: flex; align-items: center; gap: 8px; }
+.admin-test-toggle strong svg { color: #ffd600; }
+.admin-test-toggle small { color: #999; font-size: 11px; }
+.test-mode-switch {
+  min-width: 76px;
+  padding: 9px 12px;
+  border: 1px solid #444;
+  border-radius: 7px;
+  background: #222;
+  color: #aaa;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.test-mode-switch.active { background: #ffd600; border-color: #ffd600; color: #111; }
+.test-mode-banner {
+  position: fixed;
+  z-index: 20;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  padding: 9px 12px;
+  border: 1px solid #ffd600;
+  border-radius: 9px;
+  background: #171300;
+  color: #f5e9a7;
+  box-shadow: 0 6px 24px #0009;
+  font-size: 12px;
+}
+.test-mode-banner strong { color: #ffd600; white-space: nowrap; }
+.test-mode-banner button {
+  padding: 6px 9px;
+  border: 1px solid #655600;
+  border-radius: 6px;
+  background: #292200;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.win-dialog .eyebrow { color: #ffd600; }
+.test-mode-banner button:disabled { opacity: .5; cursor: not-allowed; }
 .admin-header {
   display: flex;
   justify-content: space-between;

@@ -33,6 +33,14 @@ Old catalogs are migrated to the six current prizes while keeping old spin recor
 removed prizes are hidden from the active wheel/catalog but old results remain
 readable, including a pending legacy result.
 
+The Admin page in this static build has a local password gate, and Admin can enable
+MODE TEST for practice spins. Test spins run on a temporary copy of the current
+wheel, are visibly marked, and never append to the operational ledger or decrement
+stock. MODE TEST defaults off on a fresh page load. The password verifier is
+included in the public client bundle, so this gate only prevents casual access; it
+is not secure authentication and should not protect sensitive information. A true
+server-side admin login and shared inventory require backend hosting.
+
 This is a static Pages deployment: IndexedDB data is per browser profile and origin.
 Different devices or browser profiles do not share inventory/history. The previous
 live `/api` endpoints are not available on GitHub Pages; a shared multi-device
@@ -53,8 +61,10 @@ npm.cmd run lint
 npm.cmd test
 npm.cmd run build
 npx.cmd playwright install chromium
+$env:HOWELL_ADMIN_PASSWORD = "(password admin lokal)"
 node e2e/check.mjs
 ```
 
 The browser check requires the local development server and uses a fresh browser
-profile so it does not touch a booth profile's saved history.
+profile so it does not touch a booth profile's saved history. The E2E password is
+provided through the environment and is not stored in the test source.

@@ -10,7 +10,7 @@ import {
   Shield,
 } from "lucide-react";
 import { AdminDashboard } from "./AdminDashboard";
-import { requestSpin } from "./api";
+import { requestSpin, requestTestSpin } from "./api";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
@@ -42,6 +42,7 @@ export default function App() {
   const [sound, setSound] = useState(false);
   const [history, setHistory] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [testMode, setTestMode] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Spin>();
   const [easy, setEasy] = useState(false);
@@ -115,10 +116,13 @@ export default function App() {
   }, [history]);
 
   function begin(source: string | number) {
+    const hasAvailablePrize = testMode
+      ? !!state?.segments.some((id) => state.prizes.find((prize) => prize.id === id)?.enabled)
+      : !!state && available(state).length > 0;
     if (
       phaseRef.current !== "IDLE" ||
       !state ||
-      !available(state).length ||
+      !hasAvailablePrize ||
       history
     )
       return;
@@ -163,10 +167,13 @@ export default function App() {
     change("SPINNING");
     try {
       const previous = angle.current;
-      const { spin: selected, savedState: saved } = await requestSpin({
-        sessionId: state.session.id,
-        clientRequestId: crypto.randomUUID(),
-      });
+      const selected = testMode
+        ? await requestTestSpin({ sessionId: state.session.id })
+        : (await requestSpin({
+            sessionId: state.session.id,
+            clientRequestId: crypto.randomUUID(),
+          })).spin;
+      const saved = testMode ? state : await read();
       let rot = powerRotationFor(
         selected.segment,
         selected.segments.length,
@@ -421,7 +428,13 @@ export default function App() {
           </div>
           <button
             className="charge-button"
-            disabled={!state || busy || !available(state).length}
+            disabled={
+              !state ||
+              busy ||
+              (testMode
+                ? !state.segments.some((id) => state.prizes.find((prize) => prize.id === id)?.enabled)
+                : !available(state).length)
+            }
             onContextMenu={(e) => e.preventDefault()}
             onPointerDown={(e) => {
               if (easy || e.button !== 0 || held.current !== null) return;
@@ -535,11 +548,11 @@ export default function App() {
             transition={{ type: "spring", damping: 20, stiffness: 220 }}
           >
             <div className="eyebrow">
-              {result.prizeId === "tws"
+            {testMode ? "MODE TEST · SIMULASI SAJA" : result.prizeId === "tws"
                 ? "🌟 GRAND PRIZE UTAMA 🌟"
                 : "CONGRATULATIONS!"}
             </div>
-            <h2 id="win-title">YOU WON</h2>
+            <h2 id="win-title">{testMode ? "TEST SPIN" : "YOU WON"}</h2>
             <div className="prize-hero">
               {result.image ? (
                 <img src={result.image} alt={result.prizeName} />
@@ -549,7 +562,9 @@ export default function App() {
             </div>
             <h3>{result.prizeName}</h3>
             <p>
-              {result.prizeId === "tws"
+              {testMode
+                ? "Ini hanya simulasi untuk menguji roda. Hadiah ini tidak dicatat dan tidak dapat diklaim."
+                : result.prizeId === "tws"
                 ? "Selamat! Kamu berhasil memenangkan Grand Prize TWS HW01! Tunjukkan hasil ini kepada petugas booth HOWELL."
                 : "Tunjukkan hasil ini kepada petugas booth HOWELL."}
             </p>
@@ -560,7 +575,7 @@ export default function App() {
                 <div className="claim-code">
                   <div className="claim-item">
                     <small>SPIN ID</small>
-                    <strong>{result.code}</strong>
+                    <strong>{testMode ? "SIMULASI" : result.code}</strong>
                   </div>
                   {sku && (
                     <>
@@ -652,7 +667,19 @@ export default function App() {
           )}
         </div>
       </dialog>
-      <AdminDashboard open={adminOpen} onClose={() => setAdminOpen(false)} />
+      {testMode && (
+        <div className="test-mode-banner" role="status">
+          <strong>MODE TEST</strong>
+          <span>Spin tidak dicatat dan tidak mengurangi stok.</span>
+          <button type="button" disabled={busy} onClick={() => setTestMode(false)}>Keluar</button>
+        </div>
+      )}
+      <AdminDashboard
+        open={adminOpen}
+        onClose={() => setAdminOpen(false)}
+        testMode={testMode}
+        onTestModeChange={setTestMode}
+      />
     </div>
   );
 }
