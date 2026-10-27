@@ -33,10 +33,10 @@ Old catalogs are migrated to the six current prizes while keeping old spin recor
 removed prizes are hidden from the active wheel/catalog but old results remain
 readable, including a pending legacy result.
 
-The Admin page in this static build has a local password gate, and Admin can enable
-MODE TEST for practice spins. Test spins run on a temporary copy of the current
-wheel, are visibly marked, and never append to the operational ledger or decrement
-stock. MODE TEST defaults off on a fresh page load. The password verifier is
+The Admin page in this static build has a local password gate. A TEST button next
+to sound starts a practice spin immediately. Test spins run on a temporary copy of
+the current wheel, are visibly marked, and never append to the operational ledger
+or decrement stock. The password verifier is
 included in the public client bundle, so this gate only prevents casual access; it
 is not secure authentication and should not protect sensitive information. A true
 server-side admin login and shared inventory require backend hosting.

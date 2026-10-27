@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   Clock,
-  FlaskConical,
   LockKeyhole,
   LogOut,
   PackageCheck,
@@ -16,15 +15,11 @@ import { verifyLocalAdminPassword } from "./adminAccess";
 interface AdminDashboardProps {
   open: boolean;
   onClose: () => void;
-  testMode: boolean;
-  onTestModeChange: (enabled: boolean) => void;
 }
 
 export function AdminDashboard({
   open,
   onClose,
-  testMode,
-  onTestModeChange,
 }: AdminDashboardProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [data, setData] = useState<AdminStatusResponse | null>(null);
@@ -130,7 +125,6 @@ export function AdminDashboard({
                   title="Keluar dari admin"
                   aria-label="Keluar dari admin"
                   onClick={() => {
-                    onTestModeChange(false);
                     setAuthenticated(false);
                     setData(null);
                   }}
@@ -153,7 +147,7 @@ export function AdminDashboard({
           <form className="admin-login" onSubmit={(event) => void login(event)}>
             <div className="admin-login-icon"><LockKeyhole size={22} /></div>
             <h3>Masuk ke Admin</h3>
-            <p>Masukkan password untuk melihat stok dan mengaktifkan mode test.</p>
+            <p>Masukkan password untuk melihat stok hadiah harian.</p>
             <label htmlFor="admin-password">Password admin</label>
             <input
               id="admin-password"
@@ -172,20 +166,6 @@ export function AdminDashboard({
           </form>
         ) : (
           <>
-        <div className="admin-test-toggle">
-          <div>
-            <strong><FlaskConical size={16} /> Mode test spin</strong>
-            <small>Hasil test tidak masuk history dan tidak mengurangi stok.</small>
-          </div>
-          <button
-            type="button"
-            className={testMode ? "test-mode-switch active" : "test-mode-switch"}
-            aria-pressed={testMode}
-            onClick={() => onTestModeChange(!testMode)}
-          >
-            {testMode ? "AKTIF" : "MATI"}
-          </button>
-        </div>
         {error && (
           <div className="admin-error">
             <AlertTriangle size={16} /> {error}

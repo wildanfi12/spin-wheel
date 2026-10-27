@@ -132,11 +132,6 @@ await page.keyboard.up("Enter");
 await page.waitForTimeout(7300);
 assert.equal(await page.locator(".win-dialog").isVisible(), true);
 await page.getByRole("button", { name: "SELESAI" }).click();
-await page.getByRole("button", { name: "ADMIN" }).click();
-await loginToAdmin();
-await page.getByRole("button", { name: "MATI" }).click();
-await page.getByRole("button", { name: "Tutup dashboard" }).click();
-await page.getByText("MODE TEST", { exact: true }).waitFor();
 const officialSpinCount = await page.evaluate(async () => {
   const db = await new Promise((resolve, reject) => {
     const request = indexedDB.open("howell-booth", 1);
@@ -148,12 +143,8 @@ const officialSpinCount = await page.evaluate(async () => {
     request.onsuccess = () => resolve(request.result.spins.length);
   });
 });
-const testChargeBox = await charge.boundingBox();
-await page.mouse.move(testChargeBox.x + testChargeBox.width / 2, testChargeBox.y + testChargeBox.height / 2);
-await page.mouse.down();
-await page.waitForTimeout(1700);
-await page.mouse.up();
-await page.waitForTimeout(7300);
+await page.getByRole("button", { name: "Test spin" }).click();
+await page.waitForTimeout(6000);
 assert.equal(await page.getByRole("heading", { name: "TEST SPIN" }).isVisible(), true);
 await page.getByRole("button", { name: "SELESAI" }).click();
 const spinsAfterTest = await page.evaluate(async () => {
@@ -168,11 +159,9 @@ const spinsAfterTest = await page.evaluate(async () => {
   });
 });
 assert.equal(spinsAfterTest, officialSpinCount);
-await page.getByRole("button", { name: "Keluar" }).click();
-assert.equal(await page.getByText("MODE TEST", { exact: true }).count(), 0);
 assert.deepEqual(errors, []);
 console.log(
-  "PASS: spin behavior, result and history, local admin gate, no-history test spin, keyboard cancellation, accessible two-tap, 390px layout, console.",
+  "PASS: spin behavior, result and history, local admin gate, direct no-history test spin, keyboard cancellation, accessible two-tap, 390px layout, console.",
 );
 await browser.close();
 
