@@ -1304,6 +1304,9 @@ main {
   justify-self: start;
   padding: 20px 0;
 }
+.telemetry-title {
+  display: none;
+}
 .energy-bars {
   width: min(100%, 240px);
 }
@@ -1535,6 +1538,13 @@ dialog {
     width: min(100%, 680px, calc(100dvh - 312px));
     max-width: none;
   }
+  .header-title {
+    display: none;
+  }
+  .telemetry-title {
+    display: block;
+    margin-bottom: clamp(16px, 2.5vh, 24px);
+  }
   .prize-strip,
   footer {
     display: none;
@@ -1544,10 +1554,10 @@ dialog {
   }
   .header-layout {
     min-height: 116px;
-    grid-template-columns: 150px minmax(0, 1fr);
+    grid-template-columns: 150px;
     align-items: center;
-    column-gap: 28px;
-    padding: 0 340px 0 0;
+    column-gap: 0;
+    padding: 0;
   }
   .brand {
     width: 150px;

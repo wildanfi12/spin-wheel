@@ -60,6 +60,7 @@ await page.waitForFunction(() =>
 );
 await page.getByRole("button", { name: "ADMIN" }).click();
 await page.locator(".admin-dialog").waitFor({ state: "visible" });
+await page.locator(".inventory-table tbody tr").first().waitFor();
 assert.equal(await page.locator(".inventory-table tbody tr").count(), 6);
 assert.match(await page.locator(".admin-dialog").innerText(), /Stok Hadiah Harian/);
 await page.getByRole("button", { name: "Tutup dashboard" }).click();
@@ -93,6 +94,7 @@ const wheel = await page.locator(".wheel-shell").boundingBox();
 assert.ok(wheel.x >= 0 && wheel.x + wheel.width <= 390);
 await page.getByRole("button", { name: "ADMIN" }).click();
 await page.locator(".admin-dialog").waitFor({ state: "visible" });
+await page.locator(".inventory-table tbody tr").first().waitFor();
 assert.equal(await page.locator(".inventory-table tbody tr").count(), 6);
 await page.getByRole("button", { name: "Tutup dashboard" }).click();
 await page.getByRole("button", { name: "HISTORY" }).click();
