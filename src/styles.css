@@ -155,6 +155,9 @@ i {
 }
 .wheel-disc {
   will-change: transform;
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  contain: paint;
 }
 .wheel-disc .prize-image-shirt {
   filter: drop-shadow(0 2px 2px rgb(0 0 0 / 14%));
@@ -168,21 +171,7 @@ i {
 }
 .led {
   fill: #393722;
-}
-.led.lit {
-  fill: #ffea00;
-  opacity: calc(0.35 + var(--energy) * 0.65);
-  filter: drop-shadow(0 0 calc(2px + var(--energy) * 6px) #ffd600);
-}
-.phase-idle .led {
-  animation: idle-led 3s ease-in-out infinite;
-}
-.phase-spinning .led.lit,
-.phase-decelerating .led.lit {
-  animation: spin-led 0.22s infinite alternate;
-}
-.phase-decelerating .led {
-  animation-duration: 0.6s;
+  opacity: calc(0.3 + var(--energy, 0) * 0.7);
 }
 .energy-track,
 .energy-ring {
@@ -195,6 +184,7 @@ i {
 .energy-ring {
   stroke: #ffea00;
   filter: drop-shadow(0 0 5px #ffd600);
+  stroke-dasharray: calc(var(--energy, 0) * 100) 100;
 }
 .hub {
   position: absolute;
@@ -378,6 +368,7 @@ i {
   position: absolute;
   inset: 0;
   transform-origin: left;
+  transform: scaleX(var(--energy, 0));
   background: #ffef6b;
   z-index: -1;
 }
@@ -850,6 +841,19 @@ dialog::backdrop {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .wheel-shell {
+    filter: none;
+  }
+  .led,
+  .energy-ring {
+    filter: none;
+  }
+  .hub {
+    box-shadow: none;
   }
 }
 
@@ -1396,10 +1400,6 @@ dialog {
 .history-dialog {
   max-height: min(90svh, 900px);
   overscroll-behavior: contain;
-}
-.phase-spinning .hub,
-.phase-spinning .energy-ring {
-  animation: ready 0.45s ease-out;
 }
 @media (max-width: 1200px) {
   main {

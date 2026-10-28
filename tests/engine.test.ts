@@ -13,7 +13,7 @@ import {
   nearestAvailableIndex,
 } from "../src/engine";
 import { mutate, restore, read } from "../src/storage";
-import { DAILY_STOCK_LIMITS, remainingDailyStock } from "../src/inventory";
+import { DAILY_STOCK_LIMITS, getDailyInventory, remainingDailyStock } from "../src/inventory";
 import { getWibDate } from "../src/timezone";
 
 function historySpin(prizeId: string, dateWib: string, index: number): Spin {
@@ -53,10 +53,10 @@ describe("six-prize inventory and wheel geometry", () => {
     expect(state.prizes.some((prize) => prize.id === "hdmi")).toBe(false);
   });
 
-  it("matches weighted selection across the six active prizes", () => {
+  it("matches the stock-weighted ratios across the six active prizes", () => {
     const state = initial();
     const counts: Record<string, number> = {};
-    const samples = 8500;
+    const samples = 9600;
     for (let i = 0; i < samples; i++) {
       const result = select(state, (i + 0.5) / samples);
       const id = result.segments[result.index];
@@ -65,18 +65,60 @@ describe("six-prize inventory and wheel geometry", () => {
     expect(counts).toEqual({
       tws: 300,
       shirt: 1000,
-      umbrella: 700,
-      cable: 1000,
-      earphone: 2500,
-      discount: 3000,
+      umbrella: 800,
+      cable: 500,
+      earphone: 2000,
+      discount: 5000,
     });
   });
 
-  it("uses weighted segments and excludes disabled or daily-exhausted prizes", () => {
+  it("reports the next-spin odds from remaining daily stock", () => {
     const state = initial();
-    state.prizes[0].weight = 97;
-    expect(select(state, 0.49).index).toBe(0);
-    expect(select(state, 0.6).index).not.toBe(0);
+    const dateWib = getWibDate();
+    const initialOdds = getDailyInventory(state.prizes, state.spins, dateWib);
+    expect(initialOdds.map((row) => [row.id, row.probability])).toEqual([
+      ["tws", 3.125],
+      ["shirt", 10.416666666666668],
+      ["umbrella", 8.333333333333332],
+      ["cable", 5.208333333333334],
+      ["earphone", 20.833333333333336],
+      ["discount", 52.083333333333336],
+    ]);
+
+    state.spins.push(historySpin("discount", dateWib, 1));
+    const updatedOdds = getDailyInventory(state.prizes, state.spins, dateWib);
+    expect(updatedOdds.find((row) => row.id === "discount")?.remaining).toBe(49);
+    expect(updatedOdds.find((row) => row.id === "discount")?.probability).toBeCloseTo(49 / 95 * 100);
+
+    state.spins = Array.from({ length: DAILY_STOCK_LIMITS.discount }, (_, i) =>
+      historySpin("discount", dateWib, i),
+    );
+    const exhaustedOdds = getDailyInventory(state.prizes, state.spins, dateWib);
+    expect(exhaustedOdds.find((row) => row.id === "discount")?.probability).toBe(0);
+  });
+
+  it("uses fresh random draws with stock weights and never uses a fixed prize sequence", () => {
+    const state = initial();
+    const samples = 16_000;
+    const entropy = crypto.getRandomValues(new Uint32Array(samples));
+    const counts = Object.fromEntries(state.segments.map((id) => [id, 0])) as Record<string, number>;
+    for (const value of entropy) {
+      const result = select(state, value / 4294967296);
+      counts[result.segments[result.index]]++;
+    }
+    for (const prize of state.prizes) {
+      const expected = samples * prize.stock / 96;
+      const standardDeviation = Math.sqrt(samples * (prize.stock / 96) * (1 - prize.stock / 96));
+      expect(counts[prize.id]).toBeGreaterThan(expected - 7 * standardDeviation);
+      expect(counts[prize.id]).toBeLessThan(expected + 7 * standardDeviation);
+    }
+    expect(new Set(Object.values(counts)).size).toBeGreaterThan(1);
+  });
+
+  it("uses stock-weighted segments and excludes disabled or daily-exhausted prizes", () => {
+    const state = initial();
+    expect(select(state, 0.01).index).toBe(0);
+    expect(select(state, 0.1).index).toBe(1);
 
     const dateWib = getWibDate();
     state.spins = Array.from({ length: DAILY_STOCK_LIMITS.tws }, (_, i) =>

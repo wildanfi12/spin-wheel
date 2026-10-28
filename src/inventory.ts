@@ -19,6 +19,8 @@ export interface DailyInventoryRow {
   limit: number;
   issued: number;
   remaining: number;
+  /** Chance of this prize on the next spin, as a percentage. */
+  probability: number;
   enabled: boolean;
 }
 
@@ -53,7 +55,7 @@ export function getDailyInventory(
   spins: readonly SpinLedgerEntry[],
   dateWib = getWibDate(),
 ): DailyInventoryRow[] {
-  return prizes.flatMap((prize) => {
+  const rows = prizes.flatMap((prize) => {
     const limit = DAILY_STOCK_LIMITS[prize.id];
     if (limit === undefined) return [];
     const issued = countIssuedToday(spins, dateWib, prize.id);
@@ -64,7 +66,17 @@ export function getDailyInventory(
       limit,
       issued,
       remaining: Math.max(0, limit - issued),
+      probability: 0,
       enabled: prize.enabled,
     }];
   });
+  const totalWeight = rows.reduce(
+    (sum, row) => sum + (row.enabled ? row.remaining : 0),
+    0,
+  );
+  return rows.map((row) => ({
+    ...row,
+    probability:
+      row.enabled && totalWeight > 0 ? (row.remaining / totalWeight) * 100 : 0,
+  }));
 }

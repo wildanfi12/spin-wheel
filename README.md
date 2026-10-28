@@ -27,8 +27,17 @@ voided prizes release the reservation. Stock is calculated from non-voided histo
 for the current Asia/Jakarta date, so the next day's stock becomes available at
 00:00 WIB without a destructive reset or timer. The history itself is retained.
 
+Each official spin uses a fresh `crypto.getRandomValues` draw. A prize's weight is
+its remaining daily stock, so its next-spin probability is its remaining stock
+divided by the sum of all enabled prizes' remaining stock. The odds change after
+each issued prize; an exhausted prize has 0% chance. Results remain independent
+random draws, so a high-probability prize may occur several times consecutively;
+the displayed odds are not a promised sequence or a guarantee that all stock will
+be issued. Admin shows the current odds for the next spin.
+
 The Admin view shows the active operational date, remaining and initial stock, and
-issued count per prize. History remains available across days and page reloads.
+issued count and current next-spin probability per prize. History remains available
+across days and page reloads.
 Old catalogs are migrated to the six current prizes while keeping old spin records;
 removed prizes are hidden from the active wheel/catalog but old results remain
 readable, including a pending legacy result.
@@ -43,6 +52,11 @@ server-side admin login and shared inventory require backend hosting.
 The login form can remember access on the current browser profile for 30 days; it
 stores only an expiry timestamp, never the password. Sound is enabled by default
 when the page opens.
+
+The PWA activates new versions automatically and removes outdated precache entries.
+The wheel SVG is memoized so energy meter updates do not redraw its sectors, LED
+and energy indicators use a lightweight CSS variable, and large-screen blur effects
+are disabled to reduce GPU load on laptops connected to HDMI displays.
 
 This is a static Pages deployment: IndexedDB data is per browser profile and origin.
 Different devices or browser profiles do not share inventory/history. The previous

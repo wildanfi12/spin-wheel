@@ -37,15 +37,22 @@ export function select(s: State, random: number, now: Date = new Date()) {
 
   if (!eligiblePrizes.length) throw Error("Semua hadiah habis. Hubungi petugas.");
 
-  // Proportional weight distribution: sum of eligible weights
-  const totalWeight = eligiblePrizes.reduce((sum, p) => sum + p.weight, 0);
+  // Remaining daily inventory is the probability weight. Recalculate each spin
+  // from the ledger so depleted prizes cannot be selected and low-stock prizes
+  // naturally have lower odds. `random` is supplied by crypto.getRandomValues
+  // in the production spin API.
+  const prizeWeights = eligiblePrizes.map((prize) => ({
+    prize,
+    weight: remainingDailyStock(s.spins, prize.id, dateWib),
+  }));
+  const totalWeight = prizeWeights.reduce((sum, entry) => sum + entry.weight, 0);
   let cursor = random * totalWeight;
-  let selectedPrize = eligiblePrizes[eligiblePrizes.length - 1];
+  let selectedPrize = prizeWeights[prizeWeights.length - 1].prize;
 
-  for (const p of eligiblePrizes) {
-    cursor -= p.weight;
+  for (const entry of prizeWeights) {
+    cursor -= entry.weight;
     if (cursor < 0) {
-      selectedPrize = p;
+      selectedPrize = entry.prize;
       break;
     }
   }
@@ -62,10 +69,9 @@ export function select(s: State, random: number, now: Date = new Date()) {
     throw Error(`Segmen untuk hadiah ${selectedPrize.name} tidak ditemukan pada roda.`);
   }
 
-  // Pick deterministically or evenly across matching sectors
-  const subRandom = (random * 1000000) % 1;
-  const chosenIndex =
-    matchingIndices[Math.floor(subRandom * matchingIndices.length)];
+  // Use independent entropy for the sector when a prize appears more than once.
+  const subRandom = crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+  const chosenIndex = matchingIndices[Math.floor(subRandom * matchingIndices.length)];
 
   return {
     segments,

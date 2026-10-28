@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, memo } from "react";
 import {
   Shirt,
   Ticket,
@@ -11,7 +11,6 @@ import {
   Cable,
 } from "lucide-react";
 import type { Prize } from "./model";
-import type { Phase } from "./interaction";
 
 export function PrizeIcon({
   icon,
@@ -46,26 +45,24 @@ export const WHEEL_SECTOR_COLORS = [
   "#FFFFFF", // VOUCHER DISKON 20%
 ];
 
-export const Wheel = forwardRef<
+const WheelView = forwardRef<
   SVGSVGElement,
   {
     segments: string[];
     prizes: Prize[];
     rotation?: number;
     logo?: string;
-    progress: number;
-    phase: Phase;
-    winner?: number;
-    hubLogoRef?: React.Ref<HTMLImageElement>;
+    ready?: boolean;
+    pointerRef?: React.Ref<HTMLDivElement>;
   }
 >(function Wheel(
-  { segments, prizes, rotation = 0, logo, progress, phase, winner, hubLogoRef },
+  { segments, prizes, rotation = 0, logo, ready = false, pointerRef },
   ref,
 ) {
   const n = segments.length;
   return (
     <div className="wheel-shell">
-      <div className="pointer">
+      <div className="pointer" ref={pointerRef}>
         <span />
       </div>
       <svg viewBox="0 0 600 600" className="wheel-rim" aria-hidden="true">
@@ -98,8 +95,7 @@ export const Wheel = forwardRef<
           const a = (i * Math.PI * 2) / 60;
           return (
             <circle
-              className={"led " + (progress * 60 > i ? "lit" : "")}
-              style={{ animationDelay: `${i * 35}ms` }}
+              className="led"
               key={i}
               cx={300 + 282 * Math.sin(a)}
               cy={300 - 282 * Math.cos(a)}
@@ -114,7 +110,6 @@ export const Wheel = forwardRef<
           cy="300"
           r="298"
           pathLength="100"
-          strokeDasharray={`${progress * 100} 100`}
           transform="rotate(-90 300 300)"
         />
       </svg>
@@ -140,7 +135,6 @@ export const Wheel = forwardRef<
           return (
             <g key={i}>
               <path
-                className={winner === i ? "winning-segment" : ""}
                 d={`M300 300 L${300 + 264 * Math.cos(a)} ${300 + 264 * Math.sin(a)} A264 264 0 ${angle > 180 ? 1 : 0} 1 ${300 + 264 * Math.cos(b)} ${300 + 264 * Math.sin(b)} Z`}
                 fill={fillColor}
                 stroke="#9f8b2e"
@@ -189,14 +183,40 @@ export const Wheel = forwardRef<
       </svg>
       <div className="hub">
         <img
-          ref={hubLogoRef}
           className="hub-logo"
           src={logo || `${import.meta.env.BASE_URL}assets/howell-hub-vortex.png`}
           alt="HOWELL"
-          style={{ transform: `rotate(${rotation}deg)` }}
         />
-        <span>{phase === "READY" ? "FULL POWER" : "SPIN & WIN"}</span>
+        <span>{ready ? "FULL POWER" : "SPIN &amp; WIN"}</span>
       </div>
     </div>
+  );
+});
+
+export const Wheel = memo(WheelView, (previous, next) => {
+  const sameSegments =
+    previous.segments.length === next.segments.length &&
+    previous.segments.every((id, index) => id === next.segments[index]);
+  const samePrizes =
+    previous.prizes.length === next.prizes.length &&
+    previous.prizes.every((prize, index) => {
+      const other = next.prizes[index];
+      return (
+        prize.id === other.id &&
+        prize.name === other.name &&
+        prize.image === other.image &&
+        prize.icon === other.icon &&
+        prize.wheelLines?.join("|") === other.wheelLines?.join("|")
+      );
+    });
+
+  // Spin status/history updates should not redraw the complex SVG board.
+  return (
+    sameSegments &&
+    samePrizes &&
+    previous.rotation === next.rotation &&
+    previous.logo === next.logo &&
+    previous.ready === next.ready &&
+    previous.pointerRef === next.pointerRef
   );
 });

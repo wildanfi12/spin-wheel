@@ -22,7 +22,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "prompt",
+      // Activate a new build as soon as it is available. Waiting for a hidden
+      // install prompt leaves kiosk/HDMI browsers stuck on stale cached UI.
+      registerType: "autoUpdate",
       includeAssets: ["assets/*.png"],
       manifest: {
         name: "HOWELL SPIN & WIN",
@@ -38,6 +40,11 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,webmanifest}"],
         maximumFileSizeToCacheInBytes: 4000000,
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallback: "index.html",
+        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],

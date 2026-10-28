@@ -48,16 +48,29 @@ export default function App() {
   const [result, setResult] = useState<Spin>();
   const [easy, setEasy] = useState(false);
   const wheel = useRef<SVGSVGElement>(null),
-    hubLogo = useRef<HTMLImageElement>(null),
+    pointer = useRef<HTMLDivElement>(null),
+    appRoot = useRef<HTMLDivElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
     historyDialog = useRef<HTMLDialogElement>(null);
   const phaseRef = useRef<Phase>("IDLE"),
+    initialWheelRotation = useRef(0),
     frame = useRef(0),
     angle = useRef(0),
     held = useRef<string | number | null>(null),
     start = useRef(0),
-    progressRef = useRef(0);
+    progressRef = useRef(0),
+    lastProgressPaint = useRef(0),
+    lastTickSound = useRef(0),
+    lastPointerAnimation = useRef(0);
   const audio = useRef<ReturnType<typeof chargingAudio> | null>(null);
+
+  const paintEnergy = (value: number, now = performance.now()) => {
+    appRoot.current?.style.setProperty("--energy", String(value));
+    if (now - lastProgressPaint.current >= 90 || value === 0 || value === 1) {
+      lastProgressPaint.current = now;
+      setProgress(value);
+    }
+  };
 
   const change = (next: Phase) => {
     phaseRef.current = next;
@@ -71,7 +84,7 @@ export default function App() {
     audio.current?.stop();
     audio.current = null;
     progressRef.current = 0;
-    setProgress(0);
+    paintEnergy(0);
     change("IDLE");
   };
 
@@ -87,6 +100,7 @@ export default function App() {
         if (pending) {
           setResult(pending);
           angle.current = pending.rotation;
+          initialWheelRotation.current = pending.rotation;
           change("RESULT");
         }
       })
@@ -127,7 +141,7 @@ export default function App() {
     held.current = source;
     start.current = performance.now();
     progressRef.current = 0;
-    setProgress(0);
+    paintEnergy(0);
     setReleasedPower(0);
     change("CHARGING");
     setError("");
@@ -135,7 +149,7 @@ export default function App() {
     const update = (now: number) => {
       const p = chargeAt(now - start.current);
       progressRef.current = p;
-      setProgress(p);
+      paintEnergy(p, now);
       audio.current?.update(p);
       if (p === 1) {
         change("READY");
@@ -151,7 +165,7 @@ export default function App() {
     cancelAnimationFrame(frame.current);
     const power = chargeAt(performance.now() - start.current);
     progressRef.current = power;
-    setProgress(power);
+    paintEnergy(power);
     setReleasedPower(power);
     if (canRelease(phaseRef.current) && power >= 1) {
       audio.current?.stop();
@@ -189,7 +203,6 @@ export default function App() {
         rot += 360;
       }
       selected.rotation = rot;
-      setState(saved);
       setResult(selected);
       const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
       const duration = reduced ? 300 : powerDuration(power);
@@ -203,21 +216,22 @@ export default function App() {
         angle.current = previous + (selected.rotation - previous) * spinEase(t);
         if (wheel.current)
           wheel.current.style.transform = `rotate(${angle.current}deg)`;
-        if (hubLogo.current)
-          hubLogo.current.style.transform = `rotate(${angle.current}deg)`;
         const tick = Math.floor((angle.current + step / 2) / step);
         if (tick !== lastTick) {
-          tone(900, sound ? saved.settings.volume : 0, 0.025);
-          if (!reduced)
-            document
-              .querySelector(".pointer")
-              ?.animate(
+          if (now - lastTickSound.current >= 65) {
+            tone(900, sound ? saved.settings.volume : 0, 0.025);
+            lastTickSound.current = now;
+          }
+          if (!reduced && now - lastPointerAnimation.current >= 95) {
+            pointer.current?.animate(
                 [
                   { transform: "rotate(-17deg)" },
                   { transform: "rotate(0deg)" },
                 ],
                 { duration: 110 },
               );
+            lastPointerAnimation.current = now;
+          }
           lastTick = tick;
         }
         if (t > 0.45 && phaseRef.current === "SPINNING") change("DECELERATING");
@@ -259,7 +273,7 @@ export default function App() {
       setTestResult(false);
       setError(String(e));
       progressRef.current = 0;
-      setProgress(0);
+      paintEnergy(0);
       setReleasedPower(0);
       change("IDLE");
     }
@@ -275,12 +289,11 @@ export default function App() {
         setResult(undefined);
         setTestResult(false);
         progressRef.current = 0;
-        setProgress(0);
+        paintEnergy(0);
         setReleasedPower(0);
         setError("");
         angle.current = 0;
         if (wheel.current) wheel.current.style.transform = "rotate(0deg)";
-        if (hubLogo.current) hubLogo.current.style.transform = "rotate(0deg)";
         change("IDLE");
         return;
       }
@@ -292,12 +305,11 @@ export default function App() {
       );
       setResult(undefined);
       progressRef.current = 0;
-      setProgress(0);
+      paintEnergy(0);
       setReleasedPower(0);
       setError("");
       angle.current = 0;
       if (wheel.current) wheel.current.style.transform = "rotate(0deg)";
-      if (hubLogo.current) hubLogo.current.style.transform = "rotate(0deg)";
       change("IDLE");
     } catch (e) {
       setError(String(e));
@@ -339,6 +351,7 @@ export default function App() {
 
   return (
     <div
+      ref={appRoot}
       className={`app phase-${phase.toLowerCase()}`}
       style={{ "--energy": displayedPower } as React.CSSProperties}
     >
@@ -420,18 +433,12 @@ export default function App() {
             {state ? (
               <Wheel
                 ref={wheel}
-                hubLogoRef={hubLogo}
-                segments={result?.segments || state.segments}
+                pointerRef={pointer}
+                segments={state.segments}
                 prizes={state.prizes}
-                rotation={angle.current}
+                rotation={initialWheelRotation.current}
                 logo={state.settings.logo}
-                progress={displayedPower}
-                phase={phase}
-                winner={
-                  ["SETTLING", "WINNING", "RESULT"].includes(phase)
-                    ? result?.segment
-                    : undefined
-                }
+                ready={phase === "READY"}
               />
             ) : (
               <p>Menyiapkan mesin…</p>
@@ -496,10 +503,7 @@ export default function App() {
               }
             }}
           >
-            <span
-              className="button-fill"
-              style={{ transform: `scaleX(${progress})` }}
-            />
+            <span className="button-fill" />
             <span className="button-icon"><Zap size={23} /></span>
             <span className="button-label">
               {phase === "READY"

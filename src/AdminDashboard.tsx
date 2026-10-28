@@ -243,6 +243,7 @@ export function AdminDashboard({
                       <th>Stok harian</th>
                       <th>Keluar</th>
                       <th>Sisa</th>
+                      <th>Peluang berikutnya</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -255,6 +256,7 @@ export function AdminDashboard({
                           <td>{item.limit} pcs</td>
                           <td>{item.issued} pcs</td>
                           <td><strong>{item.remaining} pcs</strong></td>
+                          <td>{item.probability.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%</td>
                           <td>
                             <span className={exhausted ? "status-pill status-off" : "status-pill status-on"}>
                               {exhausted ? "Habis hari ini" : "Tersedia"}
@@ -270,7 +272,9 @@ export function AdminDashboard({
 
             <p className="inventory-footnote">
               Stok kembali ke jumlah harian pada pukul 00.00 WIB. Catatan hadiah yang
-              sudah keluar tetap tersedia di menu History.
+              sudah keluar tetap tersedia di menu History. Peluang dihitung dari stok
+              hadiah yang masih tersedia dan berlaku untuk spin berikutnya. Hasil tetap
+              acak, jadi peluang bukan jaminan hadiah keluar dalam urutan tertentu.
             </p>
           </div>
         )}
