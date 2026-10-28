@@ -52,11 +52,10 @@ const WheelView = forwardRef<
     prizes: Prize[];
     rotation?: number;
     logo?: string;
-    ready?: boolean;
     pointerRef?: React.Ref<HTMLDivElement>;
   }
 >(function Wheel(
-  { segments, prizes, rotation = 0, logo, ready = false, pointerRef },
+  { segments, prizes, rotation = 0, logo, pointerRef },
   ref,
 ) {
   const n = segments.length;
@@ -187,7 +186,6 @@ const WheelView = forwardRef<
           src={logo || `${import.meta.env.BASE_URL}assets/howell-hub-vortex.png`}
           alt="HOWELL"
         />
-        <span>{ready ? "FULL POWER" : "SPIN &amp; WIN"}</span>
       </div>
     </div>
   );
@@ -216,7 +214,6 @@ export const Wheel = memo(WheelView, (previous, next) => {
     samePrizes &&
     previous.rotation === next.rotation &&
     previous.logo === next.logo &&
-    previous.ready === next.ready &&
     previous.pointerRef === next.pointerRef
   );
 });

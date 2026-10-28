@@ -438,7 +438,6 @@ export default function App() {
                 prizes={state.prizes}
                 rotation={initialWheelRotation.current}
                 logo={state.settings.logo}
-                ready={phase === "READY"}
               />
             ) : (
               <p>Menyiapkan mesin…</p>
