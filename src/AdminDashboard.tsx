@@ -243,7 +243,8 @@ export function AdminDashboard({
                       <th>Stok harian</th>
                       <th>Keluar</th>
                       <th>Sisa</th>
-                      <th>Peluang berikutnya</th>
+                      <th>Peluang dasar</th>
+                      <th>Peluang spin berikutnya</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -256,6 +257,7 @@ export function AdminDashboard({
                           <td>{item.limit} pcs</td>
                           <td>{item.issued} pcs</td>
                           <td><strong>{item.remaining} pcs</strong></td>
+                          <td>{item.baseProbability.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%</td>
                           <td>{item.probability.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%</td>
                           <td>
                             <span className={exhausted ? "status-pill status-off" : "status-pill status-on"}>
@@ -272,9 +274,11 @@ export function AdminDashboard({
 
             <p className="inventory-footnote">
               Stok kembali ke jumlah harian pada pukul 00.00 WIB. Catatan hadiah yang
-              sudah keluar tetap tersedia di menu History. Peluang dihitung dari stok
-              hadiah yang masih tersedia dan berlaku untuk spin berikutnya. Hasil tetap
-              acak, jadi peluang bukan jaminan hadiah keluar dalam urutan tertentu.
+              sudah keluar tetap tersedia di menu History. Peluang dasar adalah kuota
+              hadiah dibagi total kuota harian (92). Peluang berikutnya memakai bobot
+              kuota tetap untuk hadiah yang masih tersedia; hadiah yang habis memiliki
+              peluang 0% dan peluang hadiah lain dihitung ulang. Hasil tetap acak dan
+              angka ini bukan jaminan distribusi atau seluruh stok habis.
             </p>
           </div>
         )}

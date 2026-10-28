@@ -21,10 +21,8 @@ function migratedState(source: Partial<State> | undefined): State {
     return {
       ...base,
       enabled: typeof old?.enabled === "boolean" ? old.enabled : base.enabled,
-      weight:
-        typeof old?.weight === "number" && Number.isFinite(old.weight) && old.weight > 0
-          ? old.weight
-          : base.weight,
+      // Normalize legacy weighting metadata while preserving user enablement.
+      weight: DAILY_STOCK_LIMITS[base.id] ?? base.weight,
       stock: DAILY_STOCK_LIMITS[base.id] ?? base.stock,
     };
   });

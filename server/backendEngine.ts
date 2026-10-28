@@ -113,7 +113,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Kaos eksklusif resmi HOWELL.",
     stock: DAILY_STOCK_LIMITS.shirt,
     enabled: true,
-    baseWeight: 10,
+    baseWeight: DAILY_STOCK_LIMITS.shirt,
     icon: "shirt",
     image: "assets/baju-howell.png",
     wheelLines: ["KAOS", "HOWELL"],
@@ -124,7 +124,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Payung eksklusif HOWELL.",
     stock: DAILY_STOCK_LIMITS.umbrella,
     enabled: true,
-    baseWeight: 7,
+    baseWeight: DAILY_STOCK_LIMITS.umbrella,
     icon: "umbrella",
     image: "assets/payung-howell.png",
     wheelLines: ["PAYUNG", "HOWELL"],
@@ -136,7 +136,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Kabel data Howell 4 in 1.",
     stock: DAILY_STOCK_LIMITS.cable,
     enabled: true,
-    baseWeight: 10,
+    baseWeight: DAILY_STOCK_LIMITS.cable,
     icon: "cable",
     image: "assets/kabel-data-4in1.png",
     wheelLines: ["KABEL DATA", "4 IN 1"],
@@ -148,7 +148,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Earphone Howell HW03.",
     stock: DAILY_STOCK_LIMITS.earphone,
     enabled: true,
-    baseWeight: 25,
+    baseWeight: DAILY_STOCK_LIMITS.earphone,
     icon: "headphones",
     image: "assets/earphone.png",
     wheelLines: ["EARPHONE", "HW03"],
@@ -159,7 +159,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Voucher diskon 20% produk HOWELL.",
     stock: DAILY_STOCK_LIMITS.discount,
     enabled: true,
-    baseWeight: 30,
+    baseWeight: DAILY_STOCK_LIMITS.discount,
     icon: "ticket",
     image: "assets/voucher-diskon-20.png",
     wheelLines: ["VOUCHER", "DISKON 20%"],
@@ -231,10 +231,8 @@ export class BackendEngine {
       return {
         ...base,
         enabled: typeof old?.enabled === "boolean" ? old.enabled : base.enabled,
-        baseWeight:
-          typeof old?.baseWeight === "number" && Number.isFinite(old.baseWeight) && old.baseWeight > 0
-            ? old.baseWeight
-            : base.baseWeight,
+        // Quotas are the canonical weights; legacy values are normalized.
+        baseWeight: DAILY_STOCK_LIMITS[base.id] ?? base.baseWeight,
         stock: DAILY_STOCK_LIMITS[base.id] ?? base.stock,
       };
     });
@@ -249,16 +247,17 @@ export class BackendEngine {
 
   private async persistState(): Promise<void> {
     if (!this.dbPath) return;
+    const dir = path.dirname(this.dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const tmpPath = `${this.dbPath}.tmp.${crypto.randomUUID()}`;
     try {
-      const dir = path.dirname(this.dbPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      const tmpPath = `${this.dbPath}.tmp.${crypto.randomUUID()}`;
       fs.writeFileSync(tmpPath, JSON.stringify(this.state, null, 2), "utf-8");
       fs.renameSync(tmpPath, this.dbPath);
     } catch (e) {
-      console.error("Failed to persist backend state to disk:", e);
+      if (fs.existsSync(tmpPath)) fs.rmSync(tmpPath, { force: true });
+      throw new Error("Gagal menyimpan hasil spin. Silakan coba lagi.", { cause: e });
     }
   }
 
@@ -310,7 +309,8 @@ export class BackendEngine {
     const base: Record<string, number> = {};
     const activePrizes = this.state.prizes.filter((p) => this.state.segments.includes(p.id));
     for (const p of activePrizes) {
-      base[p.id] = (p.baseWeight / 100);
+      const row = inventory.find((item) => item.id === p.id);
+      base[p.id] = row ? row.baseProbability / 100 : 0;
     }
 
     const actual: Record<string, number> = {};
@@ -320,7 +320,7 @@ export class BackendEngine {
       if (!p.enabled || (remaining.get(p.id) ?? 0) <= 0) {
         actual[p.id] = 0;
       } else {
-        totalEligibleWeight += p.baseWeight;
+        totalEligibleWeight += DAILY_STOCK_LIMITS[p.id] ?? 0;
       }
     }
 
@@ -328,7 +328,9 @@ export class BackendEngine {
       if (!p.enabled || (remaining.get(p.id) ?? 0) <= 0) {
         actual[p.id] = 0;
       } else {
-        actual[p.id] = totalEligibleWeight > 0 ? p.baseWeight / totalEligibleWeight : 0;
+        actual[p.id] = totalEligibleWeight > 0
+          ? (DAILY_STOCK_LIMITS[p.id] ?? 0) / totalEligibleWeight
+          : 0;
       }
     }
 
@@ -454,12 +456,15 @@ export class BackendEngine {
       }
 
       // 4. Select prize based on normalized weights
-      const totalEligibleWeight = eligiblePrizes.reduce((sum, p) => sum + p.baseWeight, 0);
+      const totalEligibleWeight = eligiblePrizes.reduce(
+        (sum, p) => sum + (DAILY_STOCK_LIMITS[p.id] ?? 0),
+        0,
+      );
       let cursor = randomVal * totalEligibleWeight;
       let selectedPrize = eligiblePrizes[eligiblePrizes.length - 1];
 
       for (const p of eligiblePrizes) {
-        cursor -= p.baseWeight;
+        cursor -= DAILY_STOCK_LIMITS[p.id] ?? 0;
         if (cursor < 0) {
           selectedPrize = p;
           break;
@@ -525,14 +530,16 @@ export class BackendEngine {
         dateWib,
       };
 
-      // Record in spins list and deduplication cache
+      // Persist the ledger before publishing the idempotency result. Roll back
+      // the in-memory append if disk persistence fails, so retry is safe.
       this.state.spins.push(spin);
-      if (params.clientRequestId) {
-        this.processedRequests.set(params.clientRequestId, spin);
+      try {
+        await this.persistState();
+      } catch (error) {
+        this.state.spins.pop();
+        throw error;
       }
-
-      // Persist state atomically
-      await this.persistState();
+      if (params.clientRequestId) this.processedRequests.set(params.clientRequestId, spin);
 
       const admin = this.getAdminStatus(now);
 

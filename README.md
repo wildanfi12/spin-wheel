@@ -19,7 +19,7 @@ Howell, Payung Howell, Cable Data 4 in 1, Earphone HW03, and Voucher Diskon 20%.
 The shirt sector is white. Product images in `assets/` are the supplied Howell
 product assets.
 
-Daily starting stock is TWS 3, shirt 10, umbrella 8, cable 5, earphone 20, and
+Daily starting stock is TWS 3, shirt 6, umbrella 8, cable 5, earphone 20, and
 voucher 50. The spin ledger in IndexedDB is the inventory authority for the static
 Pages app. IndexedDB read/write transactions serialize spins across tabs on the
 same browser profile and origin. A prize is reserved before the wheel animation;
@@ -27,16 +27,17 @@ voided prizes release the reservation. Stock is calculated from non-voided histo
 for the current Asia/Jakarta date, so the next day's stock becomes available at
 00:00 WIB without a destructive reset or timer. The history itself is retained.
 
-Each official spin uses a fresh `crypto.getRandomValues` draw. A prize's weight is
-its remaining daily stock, so its next-spin probability is its remaining stock
-divided by the sum of all enabled prizes' remaining stock. The odds change after
-each issued prize; an exhausted prize has 0% chance. Results remain independent
+Each official spin uses a fresh `crypto.getRandomValues` draw. A prize's fixed
+weight is its daily quota. Its base probability is its quota divided by the total
+daily quota of 92. The next-spin probability redistributes those fixed weights
+among enabled prizes that still have stock; issuing one item does not itself lower
+that prize's weight, but an exhausted prize has 0% chance. Results remain independent
 random draws, so a high-probability prize may occur several times consecutively;
 the displayed odds are not a promised sequence or a guarantee that all stock will
 be issued. Admin shows the current odds for the next spin.
 
-The Admin view shows the active operational date, remaining and initial stock, and
-issued count and current next-spin probability per prize. History remains available
+The Admin view shows the active operational date, remaining and initial stock,
+issued count, base probability, and current next-spin probability per prize. History remains available
 across days and page reloads.
 Old catalogs are migrated to the six current prizes while keeping old spin records;
 removed prizes are hidden from the active wheel/catalog but old results remain

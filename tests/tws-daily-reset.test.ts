@@ -56,12 +56,32 @@ describe("daily reward stock and Jakarta reset", () => {
     expect(status.segments).toEqual(["tws", "shirt", "umbrella", "cable", "earphone", "discount"]);
     expect(status.inventory.map((row) => [row.id, row.limit, row.remaining])).toEqual([
       ["tws", 3, 3],
-      ["shirt", 10, 10],
+      ["shirt", 6, 6],
       ["umbrella", 8, 8],
       ["cable", 5, 5],
       ["earphone", 20, 20],
       ["discount", 50, 50],
     ]);
+    expect(status.inventory.map((row) => row.baseProbability)).toEqual(
+      [3, 6, 8, 5, 20, 50].map((quota) => quota / 92 * 100),
+    );
+    expect(status.inventory.map((row) => row.probability)).toEqual(
+      status.inventory.map((row) => row.baseProbability),
+    );
+  });
+
+  it("keeps a prize's weight until exhaustion, then redistributes odds among eligible prizes", async () => {
+    const now = new Date("2026-10-26T07:00:00.000Z");
+    await engine.spin({ sessionId: "voucher-one", overrideRandom: 0.99 }, now);
+    let inventory = engine.getAdminStatus(now).inventory;
+    expect(inventory.find((row) => row.id === "discount")?.remaining).toBe(49);
+    expect(inventory.find((row) => row.id === "discount")?.probability).toBeCloseTo(50 / 92 * 100);
+
+    const oldVoucherSpins = Array.from({ length: 50 }, (_, i) => createHistorySpin("discount", "2026-10-26", i));
+    const exhaustedEngine = newEngine(oldVoucherSpins);
+    inventory = exhaustedEngine.getAdminStatus(now).inventory;
+    expect(inventory.find((row) => row.id === "discount")?.probability).toBe(0);
+    expect(inventory.find((row) => row.id === "tws")?.probability).toBeCloseTo(3 / 42 * 100);
   });
 
   it("allows three TWS winners per WIB day and replaces TWS after its limit is spent", async () => {
@@ -114,17 +134,17 @@ describe("daily reward stock and Jakarta reset", () => {
     expect(nextDay.twsWinnersHistory[5].dateWib).toBe("2026-10-26");
   });
 
-  it("never allocates more than 96 prizes during concurrent spins", async () => {
+  it("never allocates more than 92 prizes during concurrent spins", async () => {
     const attempts = await Promise.allSettled(
       Array.from({ length: 110 }, (_, i) =>
         engine.spin({ sessionId: "parallel-" + i, overrideRandom: 0.8 }),
       ),
     );
     const successes = attempts.filter((result) => result.status === "fulfilled");
-    expect(successes).toHaveLength(96);
+    expect(successes).toHaveLength(92);
 
     const status = engine.getAdminStatus();
-    expect(status.totalIssuedToday).toBe(96);
+    expect(status.totalIssuedToday).toBe(92);
     expect(status.inventory.reduce((sum, row) => sum + row.remaining, 0)).toBe(0);
     for (const row of status.inventory) {
       expect(row.issued).toBeLessThanOrEqual(row.limit);

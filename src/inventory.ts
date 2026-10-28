@@ -5,12 +5,16 @@ export const INVENTORY_POLICY = "daily-spin-ledger-v1" as const;
 
 export const DAILY_STOCK_LIMITS: Record<string, number> = {
   tws: 3,
-  shirt: 10,
+  shirt: 6,
   umbrella: 8,
   cable: 5,
   earphone: 20,
   discount: 50,
 };
+export const TOTAL_DAILY_STOCK = Object.values(DAILY_STOCK_LIMITS).reduce(
+  (sum, limit) => sum + limit,
+  0,
+);
 
 export interface DailyInventoryRow {
   id: string;
@@ -19,6 +23,8 @@ export interface DailyInventoryRow {
   limit: number;
   issued: number;
   remaining: number;
+  /** Fixed share of total daily quota, regardless of today's issued count. */
+  baseProbability: number;
   /** Chance of this prize on the next spin, as a percentage. */
   probability: number;
   enabled: boolean;
@@ -66,17 +72,20 @@ export function getDailyInventory(
       limit,
       issued,
       remaining: Math.max(0, limit - issued),
+      baseProbability: (limit / TOTAL_DAILY_STOCK) * 100,
       probability: 0,
       enabled: prize.enabled,
     }];
   });
-  const totalWeight = rows.reduce(
-    (sum, row) => sum + (row.enabled ? row.remaining : 0),
+  const totalEligibleWeight = rows.reduce(
+    (sum, row) => sum + (row.enabled && row.remaining > 0 ? row.limit : 0),
     0,
   );
   return rows.map((row) => ({
     ...row,
     probability:
-      row.enabled && totalWeight > 0 ? (row.remaining / totalWeight) * 100 : 0,
+      row.enabled && row.remaining > 0 && totalEligibleWeight > 0
+        ? (row.limit / totalEligibleWeight) * 100
+        : 0,
   }));
 }
