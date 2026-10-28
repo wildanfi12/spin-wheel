@@ -77,6 +77,32 @@ await page.getByRole("button", { name: "SELESAI" }).click();
 await page.waitForFunction(() =>
   document.querySelector(".app").classList.contains("phase-idle"),
 );
+const testSpinStart = Date.now();
+const beforeTestTransform = await page.locator(".wheel-disc").getAttribute("style");
+await page.getByRole("button", { name: "Test spin" }).click();
+await page.waitForFunction(
+  (previous) => document.querySelector(".wheel-disc").getAttribute("style") !== previous,
+  beforeTestTransform,
+  { timeout: 500 },
+);
+await page.locator(".win-dialog").waitFor({ timeout: 5000 });
+assert.ok(Date.now() - testSpinStart < 4500, "test spin should animate immediately without reading history");
+const historyAfterTest = await page.evaluate(async () => {
+  const d = await new Promise((res, rej) => {
+    const r = indexedDB.open("howell-booth", 1);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return await new Promise((res) => {
+    const r = d.transaction("app").objectStore("app").get("state");
+    r.onsuccess = () => res(r.result.spins.length);
+  });
+});
+assert.equal(historyAfterTest, 1, "test spin must not add to production history");
+await page.getByRole("button", { name: "SELESAI" }).click();
+await page.waitForFunction(() =>
+  document.querySelector(".app").classList.contains("phase-idle"),
+);
 await page.getByRole("button", { name: "ADMIN" }).click();
 await page.locator(".admin-dialog").waitFor({ state: "visible" });
 await loginToAdmin({ remember: true });
@@ -101,11 +127,16 @@ await charge.dispatchEvent("pointercancel");
 await page.keyboard.up("Space");
 assert.match(await charge.innerText(), /HOLD TO CHARGE/);
 await page.getByLabel("Mode tanpa tahan").check();
+const noHoldStart = Date.now();
+const beforeNoHoldTransform = await page.locator(".wheel-disc").getAttribute("style");
 await charge.click();
-await page.waitForTimeout(1700);
-assert.match(await charge.innerText(), /TAP TO SPIN/);
-await charge.click();
-await page.waitForTimeout(7300);
+await page.waitForFunction(
+  (previous) => document.querySelector(".wheel-disc").getAttribute("style") !== previous,
+  beforeNoHoldTransform,
+  { timeout: 500 },
+);
+await page.locator(".win-dialog").waitFor({ timeout: 6000 });
+assert.ok(Date.now() - noHoldStart < 5000, "no-hold mode should start and finish without a charging wait");
 await page.getByRole("button", { name: "SELESAI" }).click();
 await page.setViewportSize({ width: 390, height: 844 });
 await page.screenshot({ path: "../mobile-preview.png", fullPage: true });

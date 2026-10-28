@@ -30,4 +30,4 @@ export const powerSpin = (from: number, power: number, count: number) => {
   };
 };
 export const powerDuration = (power: number) =>
-  650 + Math.max(0, Math.min(1, power)) * 3850;
+  850 + Math.max(0, Math.min(1, power)) * 1950;

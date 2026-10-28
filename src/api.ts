@@ -69,12 +69,8 @@ export async function requestSpin(params: {
   return { spin: selected, savedState };
 }
 
-/** Local-only practice spin. The returned result is intentionally not saved. */
-export async function requestTestSpin(params: { sessionId: string }): Promise<Spin> {
-  const s = await read();
-  if (s.session.id !== params.sessionId) {
-    throw new Error("Sesi berubah. Muat ulang halaman sebelum memutar lagi.");
-  }
+/** Local-only practice spin, based on the already-loaded state; never hits IndexedDB. */
+export function requestTestSpin(s: State): Spin {
   const random = crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
   return previewSpin(s, random);
 }

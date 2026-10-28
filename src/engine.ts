@@ -154,10 +154,13 @@ export function reserve(s: State, random: number, now: Date = new Date()): Spin 
 
 /** Simulate a wheel result without mutating the operational state or ledger. */
 export function previewSpin(s: State, random: number, now: Date = new Date()): Spin {
-  const simulation = structuredClone(s);
-  // A practice run models a fresh test inventory without using the official ledger.
-  simulation.spins = [];
-  simulation.session = { id: crypto.randomUUID() };
+  // Reuse immutable catalog/config references; cloning State also cloned the
+  // entire cross-day history before immediately discarding it, causing delay.
+  const simulation: State = {
+    ...s,
+    spins: [],
+    session: { id: crypto.randomUUID() },
+  };
   return reserve(simulation, random, now);
 }
 

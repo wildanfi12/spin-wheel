@@ -60,6 +60,7 @@ describe("charge safety and fixed wheel", () => {
     const rotations = outcomes.map((outcome) => outcome.rotation);
     expect(rotations.every((v, i) => i === 0 || v > rotations[i - 1])).toBe(true);
     expect(powerDuration(0.05)).toBeLessThan(powerDuration(1));
+    expect(powerDuration(1)).toBe(2800);
     outcomes.forEach((outcome) =>
       expect(pointerIndex(outcome.rotation, 6)).toBe(outcome.index),
     );

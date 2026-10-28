@@ -69,7 +69,8 @@ inventory requires a server database and is outside this static deployment.
 Hold the charge control for 1.5 seconds and release at full power. Early release,
 pointer cancellation, capture loss, window blur, or hiding the tab cancels charging.
 Space and Enter work with the same press/release behavior. The optional no-hold mode
-requires a deliberate second tap. Reduced-motion users receive a shorter spin.
+starts a full-power spin with one tap. Spins now complete in at most 2.8 seconds;
+reduced-motion users receive a shorter spin.
 
 ## Checks
 

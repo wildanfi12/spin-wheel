@@ -175,24 +175,30 @@ export default function App() {
   }
 
   async function spin(power: number, test = false) {
+    const instantSpin = !test && easy && phaseRef.current === "IDLE";
     if (
       !state ||
       (test
         ? phaseRef.current !== "IDLE" || history || adminOpen
-        : !canRelease(phaseRef.current))
+        : !canRelease(phaseRef.current) && !instantSpin)
     )
       return;
     setTestResult(test);
     change("SPINNING");
     try {
       const previous = angle.current;
-      const selected = test
-        ? await requestTestSpin({ sessionId: state.session.id })
-        : (await requestSpin({
+      const reservation = test
+        ? undefined
+        : await requestSpin({
             sessionId: state.session.id,
             clientRequestId: crypto.randomUUID(),
-          })).spin;
-      const saved = test ? state : await read();
+          });
+      const selected = test
+        ? requestTestSpin(state)
+        : reservation!.spin;
+      // requestSpin already returns the committed state. Avoid a second IndexedDB
+      // round trip before the animation, which added visible startup latency.
+      const saved = test ? state : reservation!.savedState;
       let rot = powerRotationFor(
         selected.segment,
         selected.segments.length,
@@ -459,9 +465,13 @@ export default function App() {
         <section className="controls">
           <div className="control-caption">
             <span>
-              {busy ? "PUTARAN BERLANGSUNG" : "TAHAN UNTUK MENGISI ENERGI"}
+              {busy
+                ? "PUTARAN BERLANGSUNG"
+                : easy
+                  ? "MODE SEKALI KLIK"
+                  : "TAHAN UNTUK MENGISI ENERGI"}
             </span>
-            <span>1.5 SEC / FULL POWER</span>
+            <span>{easy ? "TEKAN UNTUK PUTAR" : "1.5 SEC / FULL POWER"}</span>
           </div>
           <button
             className="charge-button"
@@ -496,9 +506,7 @@ export default function App() {
             }}
             onClick={() => {
               if (easy) {
-                if (phaseRef.current === "IDLE") begin("easy");
-                else if (phaseRef.current === "READY") release("easy");
-                else cancel();
+                if (phaseRef.current === "IDLE") void spin(1);
               }
             }}
           >
@@ -513,7 +521,9 @@ export default function App() {
                   ? "CHARGING ENERGY"
                   : busy
                     ? "GOOD LUCK"
-                    : "HOLD TO CHARGE"}
+                    : easy
+                      ? "TAP TO SPIN"
+                      : "HOLD TO CHARGE"}
             </span>
             <span className="button-percent">
               {Math.round(progress * 100)}%
