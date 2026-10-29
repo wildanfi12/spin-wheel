@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Volume2,
   VolumeX,
@@ -335,7 +335,7 @@ export default function App() {
       '"' + (/^[=+@-]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"';
     const rows = [
       ["Spin ID", "Hadiah", "SKU", "Waktu Asia/Jakarta", "Status"],
-      ...historySpins
+      ...[...historySpins]
         .reverse()
         .map((r) => [
           r.code,
@@ -360,11 +360,19 @@ export default function App() {
 
   const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
   const displayedPower = busy ? releasedPower : progress;
-  const spins = [...(state?.spins || [])].reverse();
-  const historyDates = [...new Set(spins.map((spin) => getWibDate(spin.dateWib || spin.at)))];
-  const historySpins = historyDate === "all"
-    ? spins
-    : spins.filter((spin) => getWibDate(spin.dateWib || spin.at) === historyDate);
+  const spins = useMemo(() => [...(state?.spins || [])].reverse(), [state?.spins]);
+  const spinsByDate = useMemo(() => {
+    const grouped = new Map<string, Spin[]>();
+    for (const spin of spins) {
+      const day = spin.dateWib || getWibDate(spin.at);
+      const daySpins = grouped.get(day) || [];
+      daySpins.push(spin);
+      grouped.set(day, daySpins);
+    }
+    return grouped;
+  }, [spins]);
+  const historyDates = [...spinsByDate.keys()];
+  const historySpins = historyDate === "all" ? spins : spinsByDate.get(historyDate) || [];
 
   return (
     <div
@@ -665,15 +673,17 @@ export default function App() {
         </div>
         <div className="stats">
           <div>
-            <b>{spins.length}</b>
+            <b>{historySpins.length}</b>
             <small>Total Spins</small>
           </div>
           <div>
-            <b>{spins.filter((s) => s.status !== "Voided").length}</b>
+            <b>{historySpins.filter((s) => s.status !== "Voided").length}</b>
             <small>Hadiah Dimenangkan</small>
           </div>
           <div>
-            <b className="last-time">{spins[0] ? date(spins[0].at) : "—"}</b>
+            <b className="last-time">
+              {historySpins[0] ? date(historySpins[0].at) : "—"}
+            </b>
             <small>Last Spin · WIB</small>
           </div>
         </div>
@@ -690,7 +700,7 @@ export default function App() {
             <option value="all">Semua hari ({spins.length})</option>
             {historyDates.map((day) => (
               <option key={day} value={day}>
-                {getWibDateDisplay(`${day}T12:00:00+07:00`)} ({spins.filter((spin) => getWibDate(spin.dateWib || spin.at) === day).length})
+                {getWibDateDisplay(`${day}T12:00:00+07:00`)} ({spinsByDate.get(day)?.length || 0})
               </option>
             ))}
           </select>
