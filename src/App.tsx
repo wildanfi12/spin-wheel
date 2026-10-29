@@ -27,6 +27,7 @@ import {
   type Phase,
 } from "./interaction";
 import type { State, Spin } from "./model";
+import { getWibDate, getWibDateDisplay } from "./timezone";
 
 const date = (at: string) =>
   new Intl.DateTimeFormat("id-ID", {
@@ -42,6 +43,7 @@ export default function App() {
   const [releasedPower, setReleasedPower] = useState(0);
   const [sound, setSound] = useState(true);
   const [history, setHistory] = useState(false);
+  const [historyDate, setHistoryDate] = useState("all");
   const [adminOpen, setAdminOpen] = useState(false);
   const [testResult, setTestResult] = useState(false);
   const [error, setError] = useState("");
@@ -328,7 +330,7 @@ export default function App() {
       '"' + (/^[=+@-]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"';
     const rows = [
       ["Spin ID", "Hadiah", "SKU", "Waktu Asia/Jakarta", "Status"],
-      ...[...state.spins]
+      ...historySpins
         .reverse()
         .map((r) => [
           r.code,
@@ -346,7 +348,7 @@ export default function App() {
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "howell-history.csv";
+    a.download = `howell-history-${historyDate === "all" ? "semua-hari" : historyDate}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -354,6 +356,10 @@ export default function App() {
   const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
   const displayedPower = busy ? releasedPower : progress;
   const spins = [...(state?.spins || [])].reverse();
+  const historyDates = [...new Set(spins.map((spin) => getWibDate(spin.dateWib || spin.at)))];
+  const historySpins = historyDate === "all"
+    ? spins
+    : spins.filter((spin) => getWibDate(spin.dateWib || spin.at) === historyDate);
 
   return (
     <div
@@ -668,16 +674,33 @@ export default function App() {
         <button className="export" onClick={csv} disabled={!spins.length}>
           <Download size={16} /> EXPORT CSV
         </button>
+        <label className="history-date-filter">
+          <span>Tampilkan riwayat tanggal</span>
+          <select
+            aria-label="Filter riwayat berdasarkan tanggal WIB"
+            value={historyDate}
+            onChange={(event) => setHistoryDate(event.target.value)}
+          >
+            <option value="all">Semua hari ({spins.length})</option>
+            {historyDates.map((day) => (
+              <option key={day} value={day}>
+                {getWibDateDisplay(`${day}T12:00:00+07:00`)} ({spins.filter((spin) => getWibDate(spin.dateWib || spin.at) === day).length})
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="history-list">
-          {!spins.length ? (
+          {!historySpins.length ? (
             <p className="empty">
-              Belum ada putaran. Hadiah pertamamu menunggu!
+              {spins.length
+                ? "Belum ada riwayat pada tanggal ini."
+                : "Belum ada putaran. Hadiah pertamamu menunggu!"}
             </p>
           ) : (
-            spins.map((r, i) => (
+            historySpins.map((r, i) => (
               <article key={r.id}>
                 <span className="ordinal">
-                  #{String(spins.length - i).padStart(3, "0")}
+                  #{String(historySpins.length - i).padStart(3, "0")}
                 </span>
                 <div className="history-icon">
                   {r.image ? (

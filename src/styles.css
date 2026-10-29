@@ -599,6 +599,23 @@ dialog::backdrop {
   border-radius: 8px;
   font-size: 10px;
 }
+.history-date-filter {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: #aaa;
+  font-size: 11px;
+}
+.history-date-filter select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  color: #fff;
+  background: #1b1b1b;
+  border: 1px solid #444;
+  border-radius: 8px;
+  font: inherit;
+}
 .history-list article {
   display: flex;
   gap: 18px;
