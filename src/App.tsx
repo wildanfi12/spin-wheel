@@ -50,6 +50,7 @@ export default function App() {
   const [result, setResult] = useState<Spin>();
   const [easy, setEasy] = useState(false);
   const wheel = useRef<SVGSVGElement>(null),
+    hubLogo = useRef<HTMLImageElement>(null),
     pointer = useRef<HTMLDivElement>(null),
     appRoot = useRef<HTMLDivElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
@@ -224,6 +225,8 @@ export default function App() {
         angle.current = previous + (selected.rotation - previous) * spinEase(t);
         if (wheel.current)
           wheel.current.style.transform = `rotate(${angle.current}deg)`;
+        if (hubLogo.current)
+          hubLogo.current.style.transform = `rotate(${angle.current}deg)`;
         const tick = Math.floor((angle.current + step / 2) / step);
         if (tick !== lastTick) {
           if (now - lastTickSound.current >= 65) {
@@ -302,6 +305,7 @@ export default function App() {
         setError("");
         angle.current = 0;
         if (wheel.current) wheel.current.style.transform = "rotate(0deg)";
+        if (hubLogo.current) hubLogo.current.style.transform = "rotate(0deg)";
         change("IDLE");
         return;
       }
@@ -318,6 +322,7 @@ export default function App() {
       setError("");
       angle.current = 0;
       if (wheel.current) wheel.current.style.transform = "rotate(0deg)";
+      if (hubLogo.current) hubLogo.current.style.transform = "rotate(0deg)";
       change("IDLE");
     } catch (e) {
       setError(String(e));
@@ -450,6 +455,7 @@ export default function App() {
                 prizes={state.prizes}
                 rotation={initialWheelRotation.current}
                 logo={state.settings.logo}
+                logoRef={hubLogo}
               />
             ) : (
               <p>Menyiapkan mesin…</p>

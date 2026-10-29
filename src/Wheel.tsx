@@ -52,10 +52,11 @@ const WheelView = forwardRef<
     prizes: Prize[];
     rotation?: number;
     logo?: string;
+    logoRef?: React.Ref<HTMLImageElement>;
     pointerRef?: React.Ref<HTMLDivElement>;
   }
 >(function Wheel(
-  { segments, prizes, rotation = 0, logo, pointerRef },
+  { segments, prizes, rotation = 0, logo, logoRef, pointerRef },
   ref,
 ) {
   const n = segments.length;
@@ -182,7 +183,9 @@ const WheelView = forwardRef<
       </svg>
       <div className="hub">
         <img
+          ref={logoRef}
           className="hub-logo"
+          style={{ transform: `rotate(${rotation}deg)` }}
           src={logo || `${import.meta.env.BASE_URL}assets/howell-hub-vortex.png`}
           alt="HOWELL"
         />
@@ -214,6 +217,7 @@ export const Wheel = memo(WheelView, (previous, next) => {
     samePrizes &&
     previous.rotation === next.rotation &&
     previous.logo === next.logo &&
+    previous.logoRef === next.logoRef &&
     previous.pointerRef === next.pointerRef
   );
 });
