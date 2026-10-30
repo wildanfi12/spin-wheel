@@ -1,6 +1,11 @@
 import { openDB } from "idb";
 import { initial, validate, type State } from "./model";
 import { DAILY_STOCK_LIMITS } from "./inventory";
+import {
+  createReconstructedCableSpin,
+  HISTORY_START_DATE,
+  spinDateWib,
+} from "./history";
 
 const db = openDB("howell-booth", 1, {
   upgrade(db) {
@@ -10,10 +15,23 @@ const db = openDB("howell-booth", 1, {
 
 function migratedState(source: Partial<State> | undefined): State {
   const defaults = initial();
-  if (!source) return defaults;
+  if (!source) {
+    defaults.spins.push(createReconstructedCableSpin(defaults));
+    return defaults;
+  }
 
   const oldPrizes = Array.isArray(source.prizes) ? source.prizes : [];
-  const spins = Array.isArray(source.spins) ? source.spins : [];
+  const spins = Array.isArray(source.spins) ? [...source.spins] : [];
+  const reconstructedSpin = createReconstructedCableSpin(defaults);
+  const reconstructedMinute = Math.floor(new Date(reconstructedSpin.at).getTime() / 60_000);
+  const matchingHistoricalSpin = spins.some((spin) =>
+    spin.prizeId === "cable" &&
+    spinDateWib(spin) === HISTORY_START_DATE &&
+    Math.floor(new Date(spin.at).getTime() / 60_000) === reconstructedMinute,
+  );
+  if (!spins.some((spin) => spin.id === reconstructedSpin.id) && !matchingHistoricalSpin) {
+    spins.push(reconstructedSpin);
+  }
   const oldSession = source.session;
   const session = oldSession?.id ? oldSession : defaults.session;
   const prizes = defaults.prizes.map((base) => {

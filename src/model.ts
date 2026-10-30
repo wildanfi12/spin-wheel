@@ -29,6 +29,8 @@ export type Spin = {
   rotation: number;
   events: { at: string; action: string }[];
   dateWib?: string;
+  /** True when a lost historical row was reconstructed from operator confirmation. */
+  reconstructed?: boolean;
 };
 
 export type State = {

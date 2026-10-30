@@ -616,6 +616,11 @@ dialog::backdrop {
   border-radius: 8px;
   font: inherit;
 }
+.history-immutable-note {
+  margin: -4px 0 10px;
+  color: #858585;
+  font-size: 10px;
+}
 .admin-history-table-wrap {
   max-height: 340px;
   overflow: auto;
@@ -637,6 +642,40 @@ dialog::backdrop {
   top: 0;
   color: #aaa;
   background: #1b1b1b;
+}
+.history-day-stock {
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid #383838;
+  border-radius: 10px;
+  background: #191919;
+  font-size: 12px;
+}
+.history-day-stock > strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #ffd600;
+}
+.history-day-stock-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 18px;
+}
+.history-day-stock-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #aaa;
+}
+.history-day-stock-grid b {
+  color: #fff;
+  white-space: nowrap;
+}
+.history-reconstructed-note {
+  display: block;
+  margin-top: 4px;
+  color: #d6b500;
+  font-size: 10px;
 }
 .history-list article {
   display: flex;
@@ -1561,6 +1600,9 @@ dialog {
   }
 }
 @media (max-width: 600px) {
+  .history-day-stock-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   nav button {
     width: 40px;
     min-width: 40px;

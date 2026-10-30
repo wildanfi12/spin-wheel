@@ -15,6 +15,7 @@ import {
 import { mutate, restore, read } from "../src/storage";
 import { DAILY_STOCK_LIMITS, getDailyInventory, remainingDailyStock } from "../src/inventory";
 import { getWibDate } from "../src/timezone";
+import { RECONSTRUCTED_CABLE_SPIN_ID } from "../src/history";
 
 function historySpin(prizeId: string, dateWib: string, index: number): Spin {
   const segments = initial().segments;
@@ -229,7 +230,7 @@ describe("atomic ledger, voids, and persistent sessions", () => {
     const dateWib = getWibDate();
 
     expect(successful).toHaveLength(92);
-    expect(state.spins).toHaveLength(92);
+    expect(state.spins).toHaveLength(93); // 92 current-day awards plus the archived Oct 29 record.
     for (const id of state.segments) {
       expect(remainingDailyStock(state.spins, id, dateWib)).toBe(0);
       expect(state.spins.filter((spin) =>
@@ -237,6 +238,23 @@ describe("atomic ledger, voids, and persistent sessions", () => {
       ).length).toBeLessThanOrEqual(DAILY_STOCK_LIMITS[id]);
     }
     expect(available(state)).toHaveLength(0);
+  });
+
+  it("retains one reconstructed Oct 29 cable win and counts it against that date's stock", async () => {
+    await restore(initial());
+    const firstRead = await read();
+    const secondRead = await read();
+    const restored = firstRead.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID);
+
+    expect(restored).toHaveLength(1);
+    expect(restored[0]).toMatchObject({
+      prizeId: "cable",
+      dateWib: "2026-10-29",
+      status: "Won",
+      reconstructed: true,
+    });
+    expect(remainingDailyStock(firstRead.spins, "cable", "2026-10-29")).toBe(4);
+    expect(secondRead.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID)).toHaveLength(1);
   });
 
   it("preserves history and only shows six prizes after migrating the old seven-prize backup", async () => {
@@ -269,7 +287,8 @@ describe("atomic ledger, voids, and persistent sessions", () => {
     const migrated = await read();
     expect(migrated.segments).toEqual(initial().segments);
     expect(migrated.prizes.map((prize) => prize.id)).toEqual(initial().segments);
-    expect(migrated.spins).toEqual([oldSpin]);
+    expect(migrated.spins).toContainEqual(oldSpin);
+    expect(migrated.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID)).toHaveLength(1);
   });
 
   it("keeps a pending legacy HDMI result renderable without making HDMI an active prize", async () => {
@@ -303,6 +322,8 @@ describe("atomic ledger, voids, and persistent sessions", () => {
     expect(migrated.segments).toHaveLength(6);
     expect(migrated.prizes.map((prize) => prize.id)).toContain("hdmi");
     expect(migrated.prizes.find((prize) => prize.id === "hdmi")?.enabled).toBe(false);
+    expect(migrated.spins).toContainEqual(oldSpin);
+    expect(migrated.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID)).toHaveLength(1);
   });
 
   it("retains history across WIB midnight while inventory resets from the new day's ledger", () => {

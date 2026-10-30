@@ -10,7 +10,11 @@ import {
   X,
 } from "lucide-react";
 import { fetchAdminStatus, type AdminStatusResponse } from "./api";
-import { formatSpinDateTimeWib } from "./history";
+import {
+  formatSpinDateTimeWib,
+  formatWibDateLong,
+  spinDateWib,
+} from "./history";
 import {
   clearRememberedAdminAccess,
   hasRememberedAdminAccess,
@@ -37,6 +41,7 @@ export function AdminDashboard({
   const [loginError, setLoginError] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
+  const [historyDate, setHistoryDate] = useState("all");
 
   const loadData = async () => {
     setLoading(true);
@@ -101,6 +106,12 @@ export function AdminDashboard({
   const totalLimit = data?.inventory.reduce((sum, row) => sum + row.limit, 0) ?? 0;
   const totalRemaining =
     data?.inventory.reduce((sum, row) => sum + row.remaining, 0) ?? 0;
+  const historyDates = [...new Set((data?.history ?? []).map(spinDateWib))].sort(
+    (a, b) => b.localeCompare(a),
+  );
+  const filteredHistory = (data?.history ?? []).filter(
+    (spin) => historyDate === "all" || spinDateWib(spin) === historyDate,
+  );
 
   return (
     <dialog
@@ -286,9 +297,49 @@ export function AdminDashboard({
               <div className="section-header">
                 <h3>Riwayat hadiah sejak 29 Oktober 2026</h3>
                 <span className="section-note">
-                  {data.history.length} catatan · tanggal dan waktu WIB
+                  {filteredHistory.length} catatan · WIB · arsip permanen
                 </span>
               </div>
+              <label className="history-date-filter">
+                <span>Filter riwayat berdasarkan tanggal</span>
+                <select
+                  value={historyDate}
+                  onChange={(event) => setHistoryDate(event.target.value)}
+                  aria-label="Filter riwayat admin berdasarkan tanggal WIB"
+                >
+                  <option value="all">Semua hari ({data.history.length})</option>
+                  {historyDates.map((day) => (
+                    <option key={day} value={day}>
+                      {formatWibDateLong(day)} ({
+                        data.history.filter((spin) => spinDateWib(spin) === day).length
+                      })
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="inventory-footnote">
+                Riwayat bersifat hanya-baca. Tidak ada aksi untuk menghapus catatan.
+                Catatan rekonstruksi ditandai secara jelas dan memakai kode arsip,
+                bukan kode klaim.
+              </p>
+              {historyDate !== "all" && (
+                <div className="history-day-stock" aria-label="Rekap stok hari terpilih">
+                  <strong>Rekap kuota · {formatWibDateLong(historyDate)}</strong>
+                  <div className="history-day-stock-grid">
+                    {data.inventory.map((item) => {
+                      const issued = filteredHistory.filter(
+                        (spin) => spin.prizeId === item.id && spin.status !== "Voided",
+                      ).length;
+                      return (
+                        <div key={item.id}>
+                          <span>{item.name}</span>
+                          <b>{issued} keluar · {Math.max(0, item.limit - issued)}/{item.limit} sisa</b>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="table-responsive admin-history-table-wrap">
                 <table className="admin-history-table">
                   <thead>
@@ -300,16 +351,23 @@ export function AdminDashboard({
                     </tr>
                   </thead>
                   <tbody>
-                    {data.history.length ? data.history.map((spin) => (
+                    {filteredHistory.length ? filteredHistory.map((spin) => (
                       <tr key={spin.id}>
                         <td>{formatSpinDateTimeWib(spin)} WIB</td>
                         <td><strong>{spin.prizeName}</strong></td>
-                        <td>{spin.code}</td>
-                        <td>{spin.status}</td>
+                        <td>
+                          {spin.code}
+                          {spin.reconstructed && <small className="history-reconstructed-note">Arsip · bukan kode klaim</small>}
+                        </td>
+                        <td>{spin.reconstructed ? "Rekonstruksi" : spin.status}</td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={4}>Belum ada riwayat sejak 29 Oktober 2026.</td>
+                        <td colSpan={4}>
+                          {data.history.length
+                            ? "Tidak ada catatan pada tanggal ini."
+                            : "Belum ada riwayat sejak 29 Oktober 2026."}
+                        </td>
                       </tr>
                     )}
                   </tbody>
