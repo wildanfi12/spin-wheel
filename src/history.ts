@@ -3,6 +3,31 @@ import { getWibDate } from "./timezone";
 
 export const HISTORY_START_DATE = "2026-10-29";
 export const RECONSTRUCTED_CABLE_SPIN_ID = "spin-2026-10-29-1912-cable";
+export const RECONSTRUCTED_VOUCHER_SPIN_ID = "spin-2026-10-30-1631-voucher";
+
+export function createReconstructedVoucherSpin(state: State): Spin {
+  const prize = state.prizes.find((item) => item.id === "discount");
+  const segment = state.segments.indexOf("discount");
+  if (!prize || segment < 0) throw new Error("Hadiah Voucher Diskon 20% tidak ditemukan.");
+  const at = new Date("2026-10-30T16:31:00+07:00").toISOString();
+  return {
+    id: RECONSTRUCTED_VOUCHER_SPIN_ID,
+    sessionId: "historical-reconstruction",
+    prizeId: prize.id,
+    prizeName: prize.name,
+    sku: prize.sku,
+    image: prize.image,
+    icon: prize.icon,
+    code: "KODE-TIDAK-TERSEDIA",
+    at,
+    status: "Won",
+    segment,
+    segments: [...state.segments],
+    rotation: 0,
+    events: [{ at, action: "Putaran resmi dikonfirmasi operator." }],
+    dateWib: "2026-10-30",
+  };
+}
 
 export function createReconstructedCableSpin(state: State): Spin {
   const prize = state.prizes.find((item) => item.id === "cable");

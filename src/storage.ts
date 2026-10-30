@@ -3,6 +3,7 @@ import { initial, validate, type State } from "./model";
 import { DAILY_STOCK_LIMITS } from "./inventory";
 import {
   createReconstructedCableSpin,
+  createReconstructedVoucherSpin,
   HISTORY_START_DATE,
   spinDateWib,
 } from "./history";
@@ -42,6 +43,12 @@ function migratedState(source: Partial<State> | undefined): State {
     if (!existing.events.length) existing.events = reconstructedSpin.events;
   } else if (!spins.some((spin) => spin.id === reconstructedSpin.id)) {
     spins.push(reconstructedSpin);
+  }
+  const voucherSpin = createReconstructedVoucherSpin(defaults);
+  if (!spins.some((spin) => spin.id === voucherSpin.id ||
+    (spin.prizeId === "discount" && spinDateWib(spin) === "2026-10-30" &&
+      Math.floor(new Date(spin.at).getTime() / 60_000) === Math.floor(new Date(voucherSpin.at).getTime() / 60_000)))) {
+    spins.push(voucherSpin);
   }
   const oldSession = source.session;
   const session = oldSession?.id ? oldSession : defaults.session;
