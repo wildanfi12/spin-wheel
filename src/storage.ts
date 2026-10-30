@@ -19,6 +19,7 @@ function migratedState(source: Partial<State> | undefined): State {
   const defaults = initial();
   if (!source) {
     defaults.spins.push(createReconstructedCableSpin(defaults));
+    defaults.spins.push(createReconstructedVoucherSpin(defaults));
     return defaults;
   }
 
