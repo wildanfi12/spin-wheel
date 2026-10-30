@@ -27,14 +27,12 @@ import {
   type Phase,
 } from "./interaction";
 import type { State, Spin } from "./model";
-import { getWibDate, getWibDateDisplay } from "./timezone";
-
-const date = (at: string) =>
-  new Intl.DateTimeFormat("id-ID", {
-    timeZone: "Asia/Jakarta",
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(at));
+import {
+  formatSpinDateTimeWib,
+  formatWibDateLong,
+  launchPeriodSpins,
+  spinDateWib,
+} from "./history";
 
 export default function App() {
   const [state, setState] = useState<State>();
@@ -341,7 +339,7 @@ export default function App() {
           r.code,
           r.prizeName,
           r.sku || state.prizes.find((p) => p.id === r.prizeId)?.sku || "-",
-          date(r.at),
+          `${formatSpinDateTimeWib(r)} WIB`,
           r.status,
         ]),
     ];
@@ -360,18 +358,21 @@ export default function App() {
 
   const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
   const displayedPower = busy ? releasedPower : progress;
-  const spins = useMemo(() => [...(state?.spins || [])].reverse(), [state?.spins]);
+  const spins = useMemo(
+    () => [...launchPeriodSpins(state?.spins || [])].reverse(),
+    [state?.spins],
+  );
   const spinsByDate = useMemo(() => {
     const grouped = new Map<string, Spin[]>();
     for (const spin of spins) {
-      const day = spin.dateWib || getWibDate(spin.at);
+      const day = spinDateWib(spin);
       const daySpins = grouped.get(day) || [];
       daySpins.push(spin);
       grouped.set(day, daySpins);
     }
     return grouped;
   }, [spins]);
-  const historyDates = [...spinsByDate.keys()];
+  const historyDates = [...spinsByDate.keys()].sort((a, b) => b.localeCompare(a));
   const historySpins = historyDate === "all" ? spins : spinsByDate.get(historyDate) || [];
 
   return (
@@ -682,7 +683,9 @@ export default function App() {
           </div>
           <div>
             <b className="last-time">
-              {historySpins[0] ? date(historySpins[0].at) : "—"}
+              {historySpins[0]
+                ? `${formatSpinDateTimeWib(historySpins[0])} WIB`
+                : "—"}
             </b>
             <small>Last Spin · WIB</small>
           </div>
@@ -700,7 +703,7 @@ export default function App() {
             <option value="all">Semua hari ({spins.length})</option>
             {historyDates.map((day) => (
               <option key={day} value={day}>
-                {getWibDateDisplay(`${day}T12:00:00+07:00`)} ({spinsByDate.get(day)?.length || 0})
+                {formatWibDateLong(day)} ({spinsByDate.get(day)?.length || 0})
               </option>
             ))}
           </select>
@@ -727,7 +730,7 @@ export default function App() {
                 </div>
                 <div>
                   <h3>{r.prizeName}</h3>
-                  <p>{date(r.at)} WIB</p>
+                  <p>{formatSpinDateTimeWib(r)} WIB</p>
                   <small>
                     {r.code}
                     {(() => {

@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchAdminStatus, type AdminStatusResponse } from "./api";
+import { formatSpinDateTimeWib } from "./history";
 import {
   clearRememberedAdminAccess,
   hasRememberedAdminAccess,
@@ -280,6 +281,41 @@ export function AdminDashboard({
               peluang 0% dan peluang hadiah lain dihitung ulang. Hasil tetap acak dan
               angka ini bukan jaminan distribusi atau seluruh stok habis.
             </p>
+
+            <section className="admin-section">
+              <div className="section-header">
+                <h3>Riwayat hadiah sejak 29 Oktober 2026</h3>
+                <span className="section-note">
+                  {data.history.length} catatan · tanggal dan waktu WIB
+                </span>
+              </div>
+              <div className="table-responsive admin-history-table-wrap">
+                <table className="admin-history-table">
+                  <thead>
+                    <tr>
+                      <th>Waktu (WIB)</th>
+                      <th>Hadiah</th>
+                      <th>Kode</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.history.length ? data.history.map((spin) => (
+                      <tr key={spin.id}>
+                        <td>{formatSpinDateTimeWib(spin)} WIB</td>
+                        <td><strong>{spin.prizeName}</strong></td>
+                        <td>{spin.code}</td>
+                        <td>{spin.status}</td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={4}>Belum ada riwayat sejak 29 Oktober 2026.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
         )}
           </>

@@ -616,6 +616,28 @@ dialog::backdrop {
   border-radius: 8px;
   font: inherit;
 }
+.admin-history-table-wrap {
+  max-height: 340px;
+  overflow: auto;
+}
+.admin-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.admin-history-table th,
+.admin-history-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #292929;
+  white-space: nowrap;
+}
+.admin-history-table th {
+  position: sticky;
+  top: 0;
+  color: #aaa;
+  background: #1b1b1b;
+}
 .history-list article {
   display: flex;
   gap: 18px;

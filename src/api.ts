@@ -3,6 +3,7 @@ import { getDailyInventory, INVENTORY_POLICY } from "./inventory";
 import { getWibDate, getWibDateDisplay, getWibTimeString, getNextResetTime, getResetCountdown } from "./timezone";
 import { mutate, read } from "./storage";
 import { previewSpin, reserve } from "./engine";
+import { launchPeriodSpins } from "./history";
 
 export interface AdminStatusResponse {
   success: boolean;
@@ -19,6 +20,7 @@ export interface AdminStatusResponse {
   };
   totalIssuedToday: number;
   inventory: ReturnType<typeof getDailyInventory>;
+  history: Spin[];
 }
 
 export async function fetchAdminStatus(): Promise<AdminStatusResponse> {
@@ -46,6 +48,9 @@ export async function fetchAdminStatus(): Promise<AdminStatusResponse> {
     resetCountdown: getResetCountdown(now),
     totalIssuedToday: inventory.reduce((sum, item) => sum + item.issued, 0),
     inventory,
+    history: launchPeriodSpins(s.spins).sort(
+      (a, b) => b.at.localeCompare(a.at),
+    ),
   };
 }
 
