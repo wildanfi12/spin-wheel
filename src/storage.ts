@@ -9,6 +9,7 @@ import {
 } from "./history";
 import { PRIZE_DRAW_WEIGHTS } from "./inventory";
 
+// Keep this build deployable through the selected GitHub Actions Pages source.
 const db = openDB("howell-booth", 1, {
   upgrade(db) {
     db.createObjectStore("app");
