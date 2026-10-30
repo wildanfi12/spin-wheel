@@ -1,7 +1,6 @@
 import { openDB } from "idb";
 import { initial, validate, type State } from "./model";
 import { DAILY_STOCK_LIMITS } from "./inventory";
-import { HISTORY_START_DATE, launchPeriodSpins } from "./history";
 
 const db = openDB("howell-booth", 1, {
   upgrade(db) {
@@ -14,14 +13,9 @@ function migratedState(source: Partial<State> | undefined): State {
   if (!source) return defaults;
 
   const oldPrizes = Array.isArray(source.prizes) ? source.prizes : [];
-  // This application began operating on 29 October 2026. Remove earlier
-  // development/test rows from the local production ledger during migration.
-  const spins = launchPeriodSpins(Array.isArray(source.spins) ? source.spins : []);
+  const spins = Array.isArray(source.spins) ? source.spins : [];
   const oldSession = source.session;
-  const session = oldSession?.id ? { ...oldSession } : defaults.session;
-  if (session.spinId && !spins.some((spin) => spin.id === session.spinId)) {
-    session.spinId = undefined;
-  }
+  const session = oldSession?.id ? oldSession : defaults.session;
   const prizes = defaults.prizes.map((base) => {
     const old = oldPrizes.find((prize) => prize.id === base.id);
     return {
@@ -33,8 +27,8 @@ function migratedState(source: Partial<State> | undefined): State {
     };
   });
 
-  // Keep removed prize metadata only while a retained, unfinished result still
-  // needs its original wheel segments to render.
+  // Keep removed prize metadata only while a saved, unfinished result still needs
+  // its original wheel segments to render. Historical rows remain in `spins`.
   const pending = spins.find(
     (spin) => spin.id === session.spinId && spin.status !== "Voided",
   );
@@ -69,13 +63,7 @@ function migratedState(source: Partial<State> | undefined): State {
     spins,
     session,
     settings: { ...defaults.settings, ...(source.settings || {}) },
-    dailyTwsClaims: Object.fromEntries(
-      Object.entries(source.dailyTwsClaims || {}).filter(([date]) =>
-        /^\d{4}-\d{2}-\d{2}$/.test(date)
-          ? date >= HISTORY_START_DATE
-          : true,
-      ),
-    ),
+    dailyTwsClaims: source.dailyTwsClaims || {},
   };
 }
 

@@ -4,12 +4,11 @@ import { getWibDate } from "./timezone";
 export const HISTORY_START_DATE = "2026-10-29";
 
 export function spinDateWib(spin: Pick<Spin, "at" | "dateWib">): string {
-  const timestamp = new Date(spin.at);
-  if (Number.isFinite(timestamp.getTime())) return getWibDate(timestamp);
   if (spin.dateWib && /^\d{4}-\d{2}-\d{2}$/.test(spin.dateWib)) {
     return spin.dateWib;
   }
-  return "";
+  const timestamp = new Date(spin.at);
+  return Number.isFinite(timestamp.getTime()) ? getWibDate(timestamp) : "";
 }
 
 export function isLaunchPeriodSpin(spin: Pick<Spin, "at" | "dateWib">): boolean {
