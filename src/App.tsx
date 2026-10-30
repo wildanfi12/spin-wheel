@@ -200,6 +200,7 @@ export default function App() {
       // requestSpin already returns the committed state. Avoid a second IndexedDB
       // round trip before the animation, which added visible startup latency.
       const saved = test ? state : reservation!.savedState;
+      if (!test) setState(saved);
       let rot = powerRotationFor(
         selected.segment,
         selected.segments.length,
@@ -421,6 +422,7 @@ export default function App() {
           <button
             disabled={phase !== "IDLE"}
             onClick={() => {
+              setHistoryDate("all");
               void read()
                 .then(setState)
                 .catch((e) => setError(String(e)));
