@@ -47,9 +47,12 @@ function migratedState(source: Partial<State> | undefined): State {
     spins.push(reconstructedSpin);
   }
   const voucherSpin = createReconstructedVoucherSpin(defaults);
-  if (!spins.some((spin) => spin.id === voucherSpin.id ||
+  const matchingVoucherIndex = spins.findIndex((spin) => spin.id === voucherSpin.id ||
     (spin.prizeId === "discount" && spinDateWib(spin) === "2026-10-30" &&
-      Math.floor(new Date(spin.at).getTime() / 60_000) === Math.floor(new Date(voucherSpin.at).getTime() / 60_000)))) {
+      Math.floor(new Date(spin.at).getTime() / 60_000) === Math.floor(new Date(voucherSpin.at).getTime() / 60_000)));
+  if (matchingVoucherIndex >= 0) {
+    spins[matchingVoucherIndex].code = voucherSpin.code;
+  } else {
     spins.push(voucherSpin);
   }
   const oldSession = source.session;
