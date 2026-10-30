@@ -231,8 +231,8 @@ describe("atomic ledger, voids, and persistent sessions", () => {
     const state = await read();
     const dateWib = getWibDate();
 
-    expect(successful).toHaveLength(92);
-    expect(state.spins).toHaveLength(93); // 92 current-day awards plus the archived Oct 29 record.
+    expect(successful).toHaveLength(91);
+    expect(state.spins).toHaveLength(93); // 91 current-day awards plus two archived records.
     for (const id of state.segments) {
       expect(remainingDailyStock(state.spins, id, dateWib)).toBe(0);
       expect(state.spins.filter((spin) =>
