@@ -243,8 +243,19 @@ describe("atomic ledger, voids, and persistent sessions", () => {
   it("retains one reconstructed Oct 29 cable win and counts it against that date's stock", async () => {
     await restore(initial());
     const firstRead = await read();
+    const previousArchiveRecord = firstRead.spins.find(
+      (spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID,
+    )!;
+    previousArchiveRecord.code = "ARSIP-20261029-CABLE-01";
+    previousArchiveRecord.reconstructed = true;
+    previousArchiveRecord.events = [{
+      at: previousArchiveRecord.at,
+      action: "Rekonstruksi atas konfirmasi operator; kode klaim asli tidak tersedia.",
+    }];
+    await restore(firstRead);
+    const migratedRead = await read();
     const secondRead = await read();
-    const restored = firstRead.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID);
+    const restored = migratedRead.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID);
 
     expect(restored).toHaveLength(1);
     expect(restored[0]).toMatchObject({
@@ -252,8 +263,10 @@ describe("atomic ledger, voids, and persistent sessions", () => {
       dateWib: "2026-10-29",
       status: "Won",
       code: "HW-000001",
+      reconstructed: undefined,
     });
-    expect(remainingDailyStock(firstRead.spins, "cable", "2026-10-29")).toBe(4);
+    expect(restored[0].events.some((event) => /arsip|rekonstruksi|kode klaim/i.test(event.action))).toBe(false);
+    expect(remainingDailyStock(migratedRead.spins, "cable", "2026-10-29")).toBe(4);
     expect(secondRead.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID)).toHaveLength(1);
   });
 

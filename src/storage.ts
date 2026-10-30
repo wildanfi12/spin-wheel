@@ -24,12 +24,22 @@ function migratedState(source: Partial<State> | undefined): State {
   const spins = Array.isArray(source.spins) ? [...source.spins] : [];
   const reconstructedSpin = createReconstructedCableSpin(defaults);
   const reconstructedMinute = Math.floor(new Date(reconstructedSpin.at).getTime() / 60_000);
-  const matchingHistoricalSpin = spins.some((spin) =>
+  const matchingHistoricalIndex = spins.findIndex((spin) =>
     spin.prizeId === "cable" &&
     spinDateWib(spin) === HISTORY_START_DATE &&
     Math.floor(new Date(spin.at).getTime() / 60_000) === reconstructedMinute,
   );
-  if (!spins.some((spin) => spin.id === reconstructedSpin.id) && !matchingHistoricalSpin) {
+  if (matchingHistoricalIndex >= 0) {
+    const existing = spins[matchingHistoricalIndex];
+    existing.code = reconstructedSpin.code;
+    existing.prizeName = reconstructedSpin.prizeName;
+    existing.sku = reconstructedSpin.sku;
+    existing.reconstructed = undefined;
+    existing.events = existing.events.filter(
+      (event) => !/rekonstruksi|arsip|kode klaim/i.test(event.action),
+    );
+    if (!existing.events.length) existing.events = reconstructedSpin.events;
+  } else if (!spins.some((spin) => spin.id === reconstructedSpin.id)) {
     spins.push(reconstructedSpin);
   }
   const oldSession = source.session;

@@ -319,8 +319,6 @@ export function AdminDashboard({
               </label>
               <p className="inventory-footnote">
                 Riwayat bersifat hanya-baca. Tidak ada aksi untuk menghapus catatan.
-                Catatan rekonstruksi ditandai secara jelas dan memakai kode arsip,
-                bukan kode klaim.
               </p>
               {historyDate !== "all" && (
                 <div className="history-day-stock" aria-label="Rekap stok hari terpilih">
