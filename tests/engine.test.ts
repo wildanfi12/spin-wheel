@@ -251,7 +251,7 @@ describe("atomic ledger, voids, and persistent sessions", () => {
       prizeId: "cable",
       dateWib: "2026-10-29",
       status: "Won",
-      reconstructed: true,
+      code: "HW-000001",
     });
     expect(remainingDailyStock(firstRead.spins, "cable", "2026-10-29")).toBe(4);
     expect(secondRead.spins.filter((spin) => spin.id === RECONSTRUCTED_CABLE_SPIN_ID)).toHaveLength(1);

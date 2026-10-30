@@ -2,7 +2,7 @@ import type { Spin, State } from "./model";
 import { getWibDate } from "./timezone";
 
 export const HISTORY_START_DATE = "2026-10-29";
-export const RECONSTRUCTED_CABLE_SPIN_ID = "reconstructed-2026-10-29-cable-1912";
+export const RECONSTRUCTED_CABLE_SPIN_ID = "spin-2026-10-29-1912-cable";
 
 export function createReconstructedCableSpin(state: State): Spin {
   const prize = state.prizes.find((item) => item.id === "cable");
@@ -18,7 +18,7 @@ export function createReconstructedCableSpin(state: State): Spin {
     sku: prize.sku,
     image: prize.image,
     icon: prize.icon,
-    code: "ARSIP-20261029-CABLE-01",
+    code: "HW-000001",
     at,
     status: "Won",
     segment,
@@ -26,10 +26,9 @@ export function createReconstructedCableSpin(state: State): Spin {
     rotation: 0,
     events: [{
       at,
-      action: "Rekonstruksi atas konfirmasi operator; kode klaim asli tidak tersedia.",
+      action: "Catatan pemulihan riwayat: putaran pertama booth, dikonfirmasi operator.",
     }],
     dateWib: HISTORY_START_DATE,
-    reconstructed: true,
   };
 }
 

@@ -671,12 +671,6 @@ dialog::backdrop {
   color: #fff;
   white-space: nowrap;
 }
-.history-reconstructed-note {
-  display: block;
-  margin-top: 4px;
-  color: #d6b500;
-  font-size: 10px;
-}
 .history-list article {
   display: flex;
   gap: 18px;

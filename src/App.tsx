@@ -332,7 +332,7 @@ export default function App() {
     const cell = (s: string) =>
       '"' + (/^[=+@-]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"';
     const rows = [
-      ["Spin ID", "Hadiah", "SKU", "Waktu Asia/Jakarta", "Status", "Catatan"],
+      ["Spin ID", "Hadiah", "SKU", "Waktu Asia/Jakarta", "Status"],
       ...[...historySpins]
         .reverse()
         .map((r) => [
@@ -341,7 +341,6 @@ export default function App() {
           r.sku || state.prizes.find((p) => p.id === r.prizeId)?.sku || "-",
           `${formatSpinDateTimeWib(r)} WIB`,
           r.status,
-          r.reconstructed ? "Direkonstruksi atas konfirmasi operator; kode arsip, bukan kode klaim" : "",
         ]),
     ];
     const url = URL.createObjectURL(
@@ -737,7 +736,6 @@ export default function App() {
                   <p>{formatSpinDateTimeWib(r)} WIB</p>
                   <small>
                     {r.code}
-                    {r.reconstructed && " · REKONSTRUKSI (bukan kode klaim)"}
                     {(() => {
                       const sku =
                         r.sku ||

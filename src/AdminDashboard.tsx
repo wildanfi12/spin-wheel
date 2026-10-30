@@ -355,11 +355,8 @@ export function AdminDashboard({
                       <tr key={spin.id}>
                         <td>{formatSpinDateTimeWib(spin)} WIB</td>
                         <td><strong>{spin.prizeName}</strong></td>
-                        <td>
-                          {spin.code}
-                          {spin.reconstructed && <small className="history-reconstructed-note">Arsip · bukan kode klaim</small>}
-                        </td>
-                        <td>{spin.reconstructed ? "Rekonstruksi" : spin.status}</td>
+                        <td>{spin.code}</td>
+                        <td>{spin.status}</td>
                       </tr>
                     )) : (
                       <tr>
