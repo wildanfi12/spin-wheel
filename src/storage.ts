@@ -18,7 +18,10 @@ function migratedState(source: Partial<State> | undefined): State {
   // development/test rows from the local production ledger during migration.
   const spins = launchPeriodSpins(Array.isArray(source.spins) ? source.spins : []);
   const oldSession = source.session;
-  const session = oldSession?.id ? oldSession : defaults.session;
+  const session = oldSession?.id ? { ...oldSession } : defaults.session;
+  if (session.spinId && !spins.some((spin) => spin.id === session.spinId)) {
+    session.spinId = undefined;
+  }
   const prizes = defaults.prizes.map((base) => {
     const old = oldPrizes.find((prize) => prize.id === base.id);
     return {
@@ -30,8 +33,8 @@ function migratedState(source: Partial<State> | undefined): State {
     };
   });
 
-  // Keep removed prize metadata only while a saved, unfinished result still needs
-  // its original wheel segments to render. Historical rows remain in `spins`.
+  // Keep removed prize metadata only while a retained, unfinished result still
+  // needs its original wheel segments to render.
   const pending = spins.find(
     (spin) => spin.id === session.spinId && spin.status !== "Voided",
   );

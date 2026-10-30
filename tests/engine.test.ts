@@ -239,7 +239,7 @@ describe("atomic ledger, voids, and persistent sessions", () => {
     expect(available(state)).toHaveLength(0);
   });
 
-  it("preserves history and only shows six prizes after migrating the old seven-prize backup", async () => {
+  it("removes prelaunch history while keeping launch-day history and six prizes", async () => {
     const legacy = initial();
     const hdmi = {
       id: "hdmi",
@@ -262,17 +262,18 @@ describe("atomic ledger, voids, and persistent sessions", () => {
       prizeName: "KABEL HDMI 4K",
       image: "assets/hdmi-4k.png",
     };
-    legacy.spins = [oldSpin];
+    const launchDaySpin = historySpin("tws", "2026-10-29", 1);
+    legacy.spins = [oldSpin, launchDaySpin];
     legacy.session = { id: "new-session" };
 
     await restore(legacy);
     const migrated = await read();
     expect(migrated.segments).toEqual(initial().segments);
     expect(migrated.prizes.map((prize) => prize.id)).toEqual(initial().segments);
-    expect(migrated.spins).toEqual([oldSpin]);
+    expect(migrated.spins).toEqual([launchDaySpin]);
   });
 
-  it("keeps a pending legacy HDMI result renderable without making HDMI an active prize", async () => {
+  it("drops prelaunch pending history and clears its stale session", async () => {
     const legacy = initial();
     const hdmi = {
       id: "hdmi",
@@ -301,8 +302,9 @@ describe("atomic ledger, voids, and persistent sessions", () => {
     await restore(legacy);
     const migrated = await read();
     expect(migrated.segments).toHaveLength(6);
-    expect(migrated.prizes.map((prize) => prize.id)).toContain("hdmi");
-    expect(migrated.prizes.find((prize) => prize.id === "hdmi")?.enabled).toBe(false);
+    expect(migrated.prizes.map((prize) => prize.id)).not.toContain("hdmi");
+    expect(migrated.spins).toEqual([]);
+    expect(migrated.session.spinId).toBeUndefined();
   });
 
   it("retains history across WIB midnight while inventory resets from the new day's ledger", () => {
