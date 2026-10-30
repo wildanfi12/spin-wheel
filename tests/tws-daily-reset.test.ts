@@ -56,7 +56,7 @@ beforeEach(() => {
 describe("daily reward stock and Jakarta reset", () => {
   it("starts with exactly six prizes and the requested daily quantities", () => {
     const status = engine.getAdminStatus(new Date("2026-10-26T02:00:00.000Z"));
-    expect(status.inventoryPolicy).toBe("daily-spin-ledger-scarcity-weighted-v2");
+    expect(status.inventoryPolicy).toBe("daily-spin-ledger-prioritized-odds-v3");
     expect(status.segments).toEqual(["tws", "shirt", "umbrella", "cable", "earphone", "discount"]);
     expect(status.inventory.map((row) => [row.id, row.limit, row.remaining])).toEqual([
       ["tws", 3, 3],
@@ -87,7 +87,7 @@ describe("daily reward stock and Jakarta reset", () => {
     const exhaustedEngine = newEngine(oldVoucherSpins);
     inventory = exhaustedEngine.getAdminStatus(now).inventory;
     expect(inventory.find((row) => row.id === "discount")?.probability).toBe(0);
-    expect(inventory.find((row) => row.id === "tws")?.probability).toBeCloseTo(0.75 / 36 * 100);
+    expect(inventory.find((row) => row.id === "tws")?.probability).toBeCloseTo(0.75 / 60 * 100);
   });
 
   it("allows three TWS winners per WIB day and replaces TWS after its limit is spent", async () => {

@@ -63,7 +63,7 @@ describe("six-prize inventory and wheel geometry", () => {
   it("matches the stock-weighted ratios across the six active prizes", () => {
     const state = initial();
     const counts: Record<string, number> = {};
-    const samples = 34_400;
+    const samples = 44_000;
     for (let i = 0; i < samples; i++) {
       const result = select(state, (i + 0.5) / samples);
       const id = result.segments[result.index];
@@ -71,10 +71,10 @@ describe("six-prize inventory and wheel geometry", () => {
     }
     expect(counts).toEqual({
       tws: 300,
-      shirt: 2400,
-      umbrella: 3200,
+      shirt: 4800,
+      umbrella: 6400,
       cable: 500,
-      earphone: 8000,
+      earphone: 12_000,
       discount: 20_000,
     });
   });
@@ -98,7 +98,7 @@ describe("six-prize inventory and wheel geometry", () => {
     );
     const exhaustedOdds = getDailyInventory(state.prizes, state.spins, dateWib);
     expect(exhaustedOdds.find((row) => row.id === "discount")?.probability).toBe(0);
-    expect(exhaustedOdds.find((row) => row.id === "tws")?.probability).toBeCloseTo(0.75 / 36 * 100);
+    expect(exhaustedOdds.find((row) => row.id === "tws")?.probability).toBeCloseTo(0.75 / 60 * 100);
   });
 
   it("uses fresh random draws with stock weights and never uses a fixed prize sequence", () => {

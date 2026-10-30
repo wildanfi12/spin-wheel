@@ -1,7 +1,7 @@
 import type { Prize, Spin } from "./model";
 import { getWibDate } from "./timezone";
 
-export const INVENTORY_POLICY = "daily-spin-ledger-scarcity-weighted-v2" as const;
+export const INVENTORY_POLICY = "daily-spin-ledger-prioritized-odds-v3" as const;
 
 export const DAILY_STOCK_LIMITS: Record<string, number> = {
   tws: 3,
@@ -14,10 +14,10 @@ export const DAILY_STOCK_LIMITS: Record<string, number> = {
 /** Prize draw weights. Scarce high-value prizes receive only 25% of their quota as weight. */
 export const PRIZE_DRAW_WEIGHTS: Record<string, number> = {
   tws: DAILY_STOCK_LIMITS.tws * 0.25,
-  shirt: DAILY_STOCK_LIMITS.shirt,
-  umbrella: DAILY_STOCK_LIMITS.umbrella,
+  shirt: DAILY_STOCK_LIMITS.shirt * 2,
+  umbrella: DAILY_STOCK_LIMITS.umbrella * 2,
   cable: DAILY_STOCK_LIMITS.cable * 0.25,
-  earphone: DAILY_STOCK_LIMITS.earphone,
+  earphone: DAILY_STOCK_LIMITS.earphone * 1.5,
   discount: DAILY_STOCK_LIMITS.discount,
 };
 export const TOTAL_PRIZE_DRAW_WEIGHT = Object.values(PRIZE_DRAW_WEIGHTS).reduce(

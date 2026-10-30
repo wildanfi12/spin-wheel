@@ -28,15 +28,15 @@ for the current Asia/Jakarta date, so the next day's stock becomes available at
 00:00 WIB without a destructive reset or timer. The history itself is retained.
 
 Each official spin uses a fresh `crypto.getRandomValues` draw. Daily stock limits
-and draw weights are separate. The initial draw weights are 0.75 for TWS HW01, 6
-for Kaos Howell, 8 for Payung Howell, 1.25 for Cable Data 4 in 1, 20 for Earphone
-HW03, and 50 for Voucher Diskon 20%. TWS and Cable therefore use 25% of their daily
-quota as draw weight. The next-spin probability is each eligible prize's draw
-weight divided by the total weight of eligible prizes; exhausted prizes have 0%
-chance. Results remain independent random draws, so a prize can still repeat
-consecutively, and low turnout does not guarantee that any particular prize will
-or will not be awarded. Admin shows both each prize's initial odds and the odds for
-the next spin.
+and draw weights are separate. The initial draw weights are 0.75 for TWS HW01, 12
+for Kaos Howell, 16 for Payung Howell, 1.25 for Cable Data 4 in 1, 30 for Earphone
+HW03, and 50 for Voucher Diskon 20%. This makes Kaos and Payung 2x their quota,
+Earphone 1.5x, Voucher 1x, while TWS and Cable use 25% of their daily quota as
+draw weight. The next-spin probability is each eligible prize's draw weight
+divided by the total weight of eligible prizes; exhausted prizes have 0% chance.
+Results remain independent random draws, so a prize can still repeat consecutively,
+and low turnout does not guarantee that any particular prize will or will not be
+awarded. Admin shows both each prize's initial odds and the odds for the next spin.
 
 The Admin view shows the active operational date, remaining and initial stock,
 issued count, base probability, and current next-spin probability per prize. History remains available
