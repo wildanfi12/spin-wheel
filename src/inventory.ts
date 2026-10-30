@@ -1,7 +1,7 @@
 import type { Prize, Spin } from "./model";
 import { getWibDate } from "./timezone";
 
-export const INVENTORY_POLICY = "daily-spin-ledger-v1" as const;
+export const INVENTORY_POLICY = "daily-spin-ledger-scarcity-weighted-v2" as const;
 
 export const DAILY_STOCK_LIMITS: Record<string, number> = {
   tws: 3,
@@ -11,6 +11,19 @@ export const DAILY_STOCK_LIMITS: Record<string, number> = {
   earphone: 20,
   discount: 50,
 };
+/** Prize draw weights. Scarce high-value prizes receive only 25% of their quota as weight. */
+export const PRIZE_DRAW_WEIGHTS: Record<string, number> = {
+  tws: DAILY_STOCK_LIMITS.tws * 0.25,
+  shirt: DAILY_STOCK_LIMITS.shirt,
+  umbrella: DAILY_STOCK_LIMITS.umbrella,
+  cable: DAILY_STOCK_LIMITS.cable * 0.25,
+  earphone: DAILY_STOCK_LIMITS.earphone,
+  discount: DAILY_STOCK_LIMITS.discount,
+};
+export const TOTAL_PRIZE_DRAW_WEIGHT = Object.values(PRIZE_DRAW_WEIGHTS).reduce(
+  (sum, weight) => sum + weight,
+  0,
+);
 export const TOTAL_DAILY_STOCK = Object.values(DAILY_STOCK_LIMITS).reduce(
   (sum, limit) => sum + limit,
   0,
@@ -23,7 +36,7 @@ export interface DailyInventoryRow {
   limit: number;
   issued: number;
   remaining: number;
-  /** Fixed share of total daily quota, regardless of today's issued count. */
+  /** Initial share of total draw weight, independent of daily stock quota. */
   baseProbability: number;
   /** Chance of this prize on the next spin, as a percentage. */
   probability: number;
@@ -72,20 +85,21 @@ export function getDailyInventory(
       limit,
       issued,
       remaining: Math.max(0, limit - issued),
-      baseProbability: (limit / TOTAL_DAILY_STOCK) * 100,
+      baseProbability: (PRIZE_DRAW_WEIGHTS[prize.id] / TOTAL_PRIZE_DRAW_WEIGHT) * 100,
       probability: 0,
       enabled: prize.enabled,
     }];
   });
   const totalEligibleWeight = rows.reduce(
-    (sum, row) => sum + (row.enabled && row.remaining > 0 ? row.limit : 0),
+    (sum, row) =>
+      sum + (row.enabled && row.remaining > 0 ? PRIZE_DRAW_WEIGHTS[row.id] : 0),
     0,
   );
   return rows.map((row) => ({
     ...row,
     probability:
       row.enabled && row.remaining > 0 && totalEligibleWeight > 0
-        ? (row.limit / totalEligibleWeight) * 100
+        ? (PRIZE_DRAW_WEIGHTS[row.id] / totalEligibleWeight) * 100
         : 0,
   }));
 }

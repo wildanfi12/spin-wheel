@@ -286,11 +286,11 @@ export function AdminDashboard({
 
             <p className="inventory-footnote">
               Stok kembali ke jumlah harian pada pukul 00.00 WIB. Catatan hadiah yang
-              sudah keluar tetap tersedia di menu History. Peluang dasar adalah kuota
-              hadiah dibagi total kuota harian (92). Peluang berikutnya memakai bobot
-              kuota tetap untuk hadiah yang masih tersedia; hadiah yang habis memiliki
-              peluang 0% dan peluang hadiah lain dihitung ulang. Hasil tetap acak dan
-              angka ini bukan jaminan distribusi atau seluruh stok habis.
+              sudah keluar tetap tersedia di menu History. Peluang dasar dihitung dari
+              bobot undian awal; bobot TWS HW01 dan Cable Data 4 in 1 diturunkan menjadi
+              25% dari kuotanya. Peluang berikutnya dihitung ulang dari hadiah yang
+              masih tersedia. Hasil tetap acak dan angka ini bukan jaminan distribusi
+              atau seluruh stok habis.
             </p>
 
             <section className="admin-section">

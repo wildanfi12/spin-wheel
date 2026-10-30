@@ -1,4 +1,4 @@
-import { DAILY_STOCK_LIMITS } from "./inventory";
+import { DAILY_STOCK_LIMITS, PRIZE_DRAW_WEIGHTS } from "./inventory";
 
 export type Prize = {
   id: string;
@@ -62,7 +62,7 @@ export const initial = (): State => ({
       icon: "trophy",
       stock: DAILY_STOCK_LIMITS.tws,
       enabled: true,
-      weight: DAILY_STOCK_LIMITS.tws,
+      weight: PRIZE_DRAW_WEIGHTS.tws,
       image: `${import.meta.env.BASE_URL}assets/tws-howell.png`,
       wheelLines: ["TWS", "HW01"],
     },
@@ -96,7 +96,7 @@ export const initial = (): State => ({
       icon: "cable",
       stock: DAILY_STOCK_LIMITS.cable,
       enabled: true,
-      weight: DAILY_STOCK_LIMITS.cable,
+      weight: PRIZE_DRAW_WEIGHTS.cable,
       image: `${import.meta.env.BASE_URL}assets/kabel-data-4in1.png`,
       wheelLines: ["KABEL DATA", "4 IN 1"],
     },

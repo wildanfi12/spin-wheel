@@ -1,6 +1,6 @@
 import type { State, Spin } from "./model";
 import { getWibDate } from "./timezone";
-import { DAILY_STOCK_LIMITS, remainingDailyStock } from "./inventory";
+import { PRIZE_DRAW_WEIGHTS, remainingDailyStock } from "./inventory";
 
 export function isTwsAvailableForDate(
   s: State,
@@ -37,12 +37,12 @@ export function select(s: State, random: number, now: Date = new Date()) {
 
   if (!eligiblePrizes.length) throw Error("Semua hadiah habis. Hubungi petugas.");
 
-  // Fixed daily quotas are the weights. Issued count does not reduce a prize's
-  // weight; once its quota is exhausted it leaves the candidate pool entirely.
+  // Draw weights are separate from daily stock quotas. Issued count does not
+  // reduce weight; once its quota is exhausted it leaves the candidate pool.
   // `random` comes from crypto.getRandomValues in the production spin API.
   const prizeWeights = eligiblePrizes.map((prize) => ({
     prize,
-    weight: DAILY_STOCK_LIMITS[prize.id] ?? 0,
+    weight: PRIZE_DRAW_WEIGHTS[prize.id] ?? 0,
   }));
   const totalWeight = prizeWeights.reduce((sum, entry) => sum + entry.weight, 0);
   let cursor = random * totalWeight;

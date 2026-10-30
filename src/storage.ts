@@ -6,6 +6,7 @@ import {
   HISTORY_START_DATE,
   spinDateWib,
 } from "./history";
+import { PRIZE_DRAW_WEIGHTS } from "./inventory";
 
 const db = openDB("howell-booth", 1, {
   upgrade(db) {
@@ -50,7 +51,7 @@ function migratedState(source: Partial<State> | undefined): State {
       ...base,
       enabled: typeof old?.enabled === "boolean" ? old.enabled : base.enabled,
       // Normalize legacy weighting metadata while preserving user enablement.
-      weight: DAILY_STOCK_LIMITS[base.id] ?? base.weight,
+      weight: PRIZE_DRAW_WEIGHTS[base.id] ?? base.weight,
       stock: DAILY_STOCK_LIMITS[base.id] ?? base.stock,
     };
   });

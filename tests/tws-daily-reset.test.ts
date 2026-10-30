@@ -6,7 +6,11 @@ import {
   WHEEL_6_SEGMENTS,
   type BackendSpin,
 } from "../server/backendEngine";
-import { DAILY_STOCK_LIMITS } from "../src/inventory";
+import {
+  DAILY_STOCK_LIMITS,
+  PRIZE_DRAW_WEIGHTS,
+  TOTAL_PRIZE_DRAW_WEIGHT,
+} from "../src/inventory";
 import { getWibDate } from "../src/timezone";
 
 let engine: BackendEngine;
@@ -52,7 +56,7 @@ beforeEach(() => {
 describe("daily reward stock and Jakarta reset", () => {
   it("starts with exactly six prizes and the requested daily quantities", () => {
     const status = engine.getAdminStatus(new Date("2026-10-26T02:00:00.000Z"));
-    expect(status.inventoryPolicy).toBe("daily-spin-ledger-v1");
+    expect(status.inventoryPolicy).toBe("daily-spin-ledger-scarcity-weighted-v2");
     expect(status.segments).toEqual(["tws", "shirt", "umbrella", "cable", "earphone", "discount"]);
     expect(status.inventory.map((row) => [row.id, row.limit, row.remaining])).toEqual([
       ["tws", 3, 3],
@@ -63,7 +67,9 @@ describe("daily reward stock and Jakarta reset", () => {
       ["discount", 50, 50],
     ]);
     expect(status.inventory.map((row) => row.baseProbability)).toEqual(
-      [3, 6, 8, 5, 20, 50].map((quota) => quota / 92 * 100),
+      ["tws", "shirt", "umbrella", "cable", "earphone", "discount"].map(
+        (id) => PRIZE_DRAW_WEIGHTS[id] / TOTAL_PRIZE_DRAW_WEIGHT * 100,
+      ),
     );
     expect(status.inventory.map((row) => row.probability)).toEqual(
       status.inventory.map((row) => row.baseProbability),
@@ -75,13 +81,13 @@ describe("daily reward stock and Jakarta reset", () => {
     await engine.spin({ sessionId: "voucher-one", overrideRandom: 0.99 }, now);
     let inventory = engine.getAdminStatus(now).inventory;
     expect(inventory.find((row) => row.id === "discount")?.remaining).toBe(49);
-    expect(inventory.find((row) => row.id === "discount")?.probability).toBeCloseTo(50 / 92 * 100);
+    expect(inventory.find((row) => row.id === "discount")?.probability).toBeCloseTo(50 / TOTAL_PRIZE_DRAW_WEIGHT * 100);
 
     const oldVoucherSpins = Array.from({ length: 50 }, (_, i) => createHistorySpin("discount", "2026-10-26", i));
     const exhaustedEngine = newEngine(oldVoucherSpins);
     inventory = exhaustedEngine.getAdminStatus(now).inventory;
     expect(inventory.find((row) => row.id === "discount")?.probability).toBe(0);
-    expect(inventory.find((row) => row.id === "tws")?.probability).toBeCloseTo(3 / 42 * 100);
+    expect(inventory.find((row) => row.id === "tws")?.probability).toBeCloseTo(0.75 / 36 * 100);
   });
 
   it("allows three TWS winners per WIB day and replaces TWS after its limit is spent", async () => {

@@ -11,6 +11,7 @@ import {
 } from "../src/timezone";
 import {
   DAILY_STOCK_LIMITS,
+  PRIZE_DRAW_WEIGHTS,
   getDailyInventory,
   INVENTORY_POLICY,
   remainingDailyStock,
@@ -102,7 +103,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Grand Prize Utama: TWS Howell HW01 (Rp 419.000)",
     stock: DAILY_STOCK_LIMITS.tws,
     enabled: true,
-    baseWeight: 3,
+    baseWeight: PRIZE_DRAW_WEIGHTS.tws,
     icon: "trophy",
     image: "assets/tws-howell.png",
     wheelLines: ["TWS", "HW01"],
@@ -113,7 +114,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Kaos eksklusif resmi HOWELL.",
     stock: DAILY_STOCK_LIMITS.shirt,
     enabled: true,
-    baseWeight: DAILY_STOCK_LIMITS.shirt,
+    baseWeight: PRIZE_DRAW_WEIGHTS.shirt,
     icon: "shirt",
     image: "assets/baju-howell.png",
     wheelLines: ["KAOS", "HOWELL"],
@@ -124,7 +125,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Payung eksklusif HOWELL.",
     stock: DAILY_STOCK_LIMITS.umbrella,
     enabled: true,
-    baseWeight: DAILY_STOCK_LIMITS.umbrella,
+    baseWeight: PRIZE_DRAW_WEIGHTS.umbrella,
     icon: "umbrella",
     image: "assets/payung-howell.png",
     wheelLines: ["PAYUNG", "HOWELL"],
@@ -136,7 +137,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Kabel data Howell 4 in 1.",
     stock: DAILY_STOCK_LIMITS.cable,
     enabled: true,
-    baseWeight: DAILY_STOCK_LIMITS.cable,
+    baseWeight: PRIZE_DRAW_WEIGHTS.cable,
     icon: "cable",
     image: "assets/kabel-data-4in1.png",
     wheelLines: ["KABEL DATA", "4 IN 1"],
@@ -148,7 +149,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Earphone Howell HW03.",
     stock: DAILY_STOCK_LIMITS.earphone,
     enabled: true,
-    baseWeight: DAILY_STOCK_LIMITS.earphone,
+    baseWeight: PRIZE_DRAW_WEIGHTS.earphone,
     icon: "headphones",
     image: "assets/earphone.png",
     wheelLines: ["EARPHONE", "HW03"],
@@ -159,7 +160,7 @@ export const BASE_PRIZES: BackendPrize[] = [
     description: "Voucher diskon 20% produk HOWELL.",
     stock: DAILY_STOCK_LIMITS.discount,
     enabled: true,
-    baseWeight: DAILY_STOCK_LIMITS.discount,
+    baseWeight: PRIZE_DRAW_WEIGHTS.discount,
     icon: "ticket",
     image: "assets/voucher-diskon-20.png",
     wheelLines: ["VOUCHER", "DISKON 20%"],
@@ -231,8 +232,8 @@ export class BackendEngine {
       return {
         ...base,
         enabled: typeof old?.enabled === "boolean" ? old.enabled : base.enabled,
-        // Quotas are the canonical weights; legacy values are normalized.
-        baseWeight: DAILY_STOCK_LIMITS[base.id] ?? base.baseWeight,
+        // Draw weights are canonical; legacy values are normalized.
+        baseWeight: PRIZE_DRAW_WEIGHTS[base.id] ?? base.baseWeight,
         stock: DAILY_STOCK_LIMITS[base.id] ?? base.stock,
       };
     });
@@ -320,7 +321,7 @@ export class BackendEngine {
       if (!p.enabled || (remaining.get(p.id) ?? 0) <= 0) {
         actual[p.id] = 0;
       } else {
-        totalEligibleWeight += DAILY_STOCK_LIMITS[p.id] ?? 0;
+        totalEligibleWeight += PRIZE_DRAW_WEIGHTS[p.id] ?? 0;
       }
     }
 
@@ -329,7 +330,7 @@ export class BackendEngine {
         actual[p.id] = 0;
       } else {
         actual[p.id] = totalEligibleWeight > 0
-          ? (DAILY_STOCK_LIMITS[p.id] ?? 0) / totalEligibleWeight
+          ? (PRIZE_DRAW_WEIGHTS[p.id] ?? 0) / totalEligibleWeight
           : 0;
       }
     }
@@ -457,14 +458,14 @@ export class BackendEngine {
 
       // 4. Select prize based on normalized weights
       const totalEligibleWeight = eligiblePrizes.reduce(
-        (sum, p) => sum + (DAILY_STOCK_LIMITS[p.id] ?? 0),
+        (sum, p) => sum + (PRIZE_DRAW_WEIGHTS[p.id] ?? 0),
         0,
       );
       let cursor = randomVal * totalEligibleWeight;
       let selectedPrize = eligiblePrizes[eligiblePrizes.length - 1];
 
       for (const p of eligiblePrizes) {
-        cursor -= DAILY_STOCK_LIMITS[p.id] ?? 0;
+        cursor -= PRIZE_DRAW_WEIGHTS[p.id] ?? 0;
         if (cursor < 0) {
           selectedPrize = p;
           break;
