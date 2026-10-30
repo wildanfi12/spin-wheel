@@ -18,7 +18,7 @@ export function createReconstructedVoucherSpin(state: State): Spin {
     sku: prize.sku,
     image: prize.image,
     icon: prize.icon,
-    code: "KODE-TIDAK-TERSEDIA",
+    code: "HW-000002",
     at,
     status: "Won",
     segment,
