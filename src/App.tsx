@@ -11,12 +11,12 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { AdminDashboard } from "./AdminDashboard";
-import { requestSpin, requestTestSpin } from "./api";
+import { fetchAdminStatus, requestSpin, requestTestSpin } from "./api";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
-import { available, transition } from "./engine";
-import { read, mutate } from "./storage";
+import { available } from "./engine";
+import { read } from "./storage";
 import { tone, fanfare, chargingAudio } from "./audio";
 import {
   chargeAt,
@@ -40,6 +40,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [releasedPower, setReleasedPower] = useState(0);
   const [sound, setSound] = useState(true);
+  const [sharedApiReady, setSharedApiReady] = useState(false);
   const [history, setHistory] = useState(false);
   const [historyDate, setHistoryDate] = useState("all");
   const [adminOpen, setAdminOpen] = useState(false);
@@ -64,6 +65,12 @@ export default function App() {
     lastTickSound = useRef(0),
     lastPointerAnimation = useRef(0);
   const audio = useRef<ReturnType<typeof chargingAudio> | null>(null);
+
+  async function refreshSharedHistory() {
+    const status = await fetchAdminStatus();
+    setSharedApiReady(true);
+    setState((current) => current ? { ...current, spins: status.history } : current);
+  }
 
   const paintEnergy = (value: number, now = performance.now()) => {
     appRoot.current?.style.setProperty("--energy", String(value));
@@ -92,18 +99,22 @@ export default function App() {
   useEffect(() => {
     let active = true;
     void read()
-      .then((s) => {
+      .then(async (localState) => {
         if (!active) return;
-        setState(s);
-        const pending = s.spins.find(
-          (r) => r.id === s.session.spinId && r.status !== "Voided",
-        );
-        if (pending) {
-          setResult(pending);
-          angle.current = pending.rotation;
-          initialWheelRotation.current = pending.rotation;
-          change("RESULT");
+        // The VPS ledger is the single source of truth for official history and
+        // inventory. Local IndexedDB still supplies visual/settings preferences.
+        localState.session = { id: crypto.randomUUID() };
+        try {
+          const shared = await fetchAdminStatus();
+          if (!active) return;
+          localState.spins = shared.history;
+          setSharedApiReady(true);
+        } catch (e) {
+          if (!active) return;
+          setSharedApiReady(false);
+          setError(e instanceof Error ? e.message : String(e));
         }
+        setState(localState);
       })
       .catch((e) => setError(String(e)));
     const blur = () => cancel();
@@ -135,6 +146,7 @@ export default function App() {
     if (
       phaseRef.current !== "IDLE" ||
       !state ||
+      !sharedApiReady ||
       !available(state).length ||
       history
     )
@@ -184,6 +196,10 @@ export default function App() {
         : !canRelease(phaseRef.current) && !instantSpin)
     )
       return;
+    if (!test && !sharedApiReady) {
+      setError("Server pusat belum terhubung. Spin resmi dihentikan agar hadiah tidak hilang dari History.");
+      return;
+    }
     setTestResult(test);
     change("SPINNING");
     try {
@@ -191,6 +207,7 @@ export default function App() {
       const reservation = test
         ? undefined
         : await requestSpin({
+            state,
             sessionId: state.session.id,
             clientRequestId: crypto.randomUUID(),
           });
@@ -249,14 +266,6 @@ export default function App() {
         else {
           change("SETTLING");
           tone(650, sound ? saved.settings.volume : 0, 0.07);
-          if (!test) {
-            void mutate((s) => {
-              if (s.spins.find((r) => r.id === selected.id)?.status === "Won")
-                transition(s, selected.id, "Pending Claim");
-            })
-              .then(setState)
-              .catch((e) => setError(String(e)));
-          }
           const settledAt = now;
           const celebrate = (time: number) => {
             if (time - settledAt < 450) {
@@ -308,12 +317,9 @@ export default function App() {
         change("IDLE");
         return;
       }
-      setState(
-        await mutate((s) => {
-          if (s.session.spinId === result?.id)
-            s.session = { id: crypto.randomUUID() };
-        }),
-      );
+      setState((current) => current
+        ? { ...current, session: { id: crypto.randomUUID() } }
+        : current);
       setResult(undefined);
       progressRef.current = 0;
       paintEnergy(0);
@@ -360,7 +366,7 @@ export default function App() {
   const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
   const displayedPower = busy ? releasedPower : progress;
   const spins = useMemo(
-    () => [...launchPeriodSpins(state?.spins || [])].reverse(),
+    () => [...launchPeriodSpins(state?.spins || [])].sort((a, b) => b.at.localeCompare(a.at)),
     [state?.spins],
   );
   const spinsByDate = useMemo(() => {
@@ -423,9 +429,7 @@ export default function App() {
             disabled={phase !== "IDLE"}
             onClick={() => {
               setHistoryDate("all");
-              void read()
-                .then(setState)
-                .catch((e) => setError(String(e)));
+              void refreshSharedHistory().catch((e) => setError(String(e)));
               setHistory(true);
             }}
           >

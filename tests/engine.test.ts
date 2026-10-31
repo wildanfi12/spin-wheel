@@ -19,6 +19,8 @@ import {
   TOTAL_PRIZE_DRAW_WEIGHT,
   getDailyInventory,
   remainingDailyStock,
+  countIssuedToday,
+  TOTAL_DAILY_STOCK,
 } from "../src/inventory";
 import { getWibDate } from "../src/timezone";
 import { RECONSTRUCTED_CABLE_SPIN_ID } from "../src/history";
@@ -230,9 +232,11 @@ describe("atomic ledger, voids, and persistent sessions", () => {
     const successful = outcomes.filter((outcome) => outcome.status === "fulfilled");
     const state = await read();
     const dateWib = getWibDate();
+    const alreadyIssuedToday = countIssuedToday(state.spins.slice(0, 2), dateWib);
+    const expectedToday = TOTAL_DAILY_STOCK - alreadyIssuedToday;
 
-    expect(successful).toHaveLength(91);
-    expect(state.spins).toHaveLength(93); // 91 current-day awards plus two archived records.
+    expect(successful).toHaveLength(expectedToday);
+    expect(state.spins).toHaveLength(2 + expectedToday);
     for (const id of state.segments) {
       expect(remainingDailyStock(state.spins, id, dateWib)).toBe(0);
       expect(state.spins.filter((spin) =>

@@ -1,10 +1,28 @@
 import type { IncomingMessage, ServerResponse } from "http";
 import { globalBackendEngine } from "./backendEngine";
 
-function sendJson(res: ServerResponse, statusCode: number, data: unknown) {
+const allowedOrigins = new Set(
+  (process.env.ALLOWED_ORIGINS || "https://spin.howellcable.site,http://localhost:5173,http://127.0.0.1:5173")
+    .split(",").map((origin) => origin.trim()).filter(Boolean),
+);
+
+function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if (!allowedOrigins.has(origin) && !isLocalhost && origin !== "https://wildanfi12.github.io") {
+    return false;
+  }
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Vary", "Origin");
+  return true;
+}
+
+function sendJson(req: IncomingMessage, res: ServerResponse, statusCode: number, data: unknown) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  applyCors(req, res);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.end(JSON.stringify(data));
@@ -46,11 +64,20 @@ export function createSpinWheelApiMiddleware() {
 
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
+      if (!applyCors(req, res)) {
+        res.statusCode = 403;
+        res.end();
+        return;
+      }
       res.statusCode = 204;
-      res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
       res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.end();
+      return;
+    }
+
+    if (!applyCors(req, res)) {
+      sendJson(req, res, 403, { success: false, error: "Origin tidak diizinkan." });
       return;
     }
 
@@ -62,7 +89,17 @@ export function createSpinWheelApiMiddleware() {
     try {
       if (req.method === "GET" && (cleanUrl === "/api/status" || cleanUrl === "/api/admin")) {
         const status = globalBackendEngine.getAdminStatus();
-        sendJson(res, 200, status);
+        sendJson(req, res, 200, status);
+        return;
+      }
+
+      if (req.method === "GET" && cleanUrl === "/api/health") {
+        sendJson(req, res, 200, {
+          success: true,
+          service: "howell-spin-wheel-api",
+          time: new Date().toISOString(),
+          status: "healthy",
+        });
         return;
       }
 
@@ -71,16 +108,15 @@ export function createSpinWheelApiMiddleware() {
         const result = await globalBackendEngine.spin({
           sessionId: body.sessionId || "default-session",
           clientRequestId: body.clientRequestId,
-          overrideRandom: body.overrideRandom,
         });
-        sendJson(res, 200, { success: true, ...result });
+        sendJson(req, res, 200, { success: true, ...result });
         return;
       }
 
-      sendJson(res, 404, { success: false, error: "Endpoint not found" });
+      sendJson(req, res, 404, { success: false, error: "Endpoint not found" });
     } catch (err: unknown) {
       console.error("API Error on", cleanUrl, err);
-      sendJson(res, 500, {
+      sendJson(req, res, /habis/i.test(err instanceof Error ? err.message : "") ? 409 : 500, {
         success: false,
         error: err instanceof Error ? err.message : "Internal server error",
       });

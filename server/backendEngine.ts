@@ -46,6 +46,7 @@ export interface BackendSpin {
   segments: string[];
   rotation: number;
   dateWib: string; // YYYY-MM-DD
+  events?: { at: string; action: string }[];
 }
 
 export interface DailyTwsClaim {
@@ -186,14 +187,18 @@ export class BackendEngine {
   constructor(dbPath?: string | null, initialState?: Partial<BackendState>) {
     this.dbPath =
       dbPath === undefined
-        ? path.resolve(process.cwd(), "data", "spin-wheel-backend-state.json")
+        ? process.env.DATA_FILE ||
+          (process.env.DATA_DIR
+            ? path.resolve(process.env.DATA_DIR, "spin-wheel-backend-state.json")
+            : path.resolve(process.cwd(), "data", "spin-wheel-backend-state.json"))
         : dbPath;
     this.state = this.loadState(initialState);
   }
 
   private loadState(override?: Partial<BackendState>): BackendState {
     if (override && override.prizes) {
-      return this.migrateState(override);
+      const shouldSeed = override.spins === undefined;
+      return this.migrateState(override, shouldSeed);
     }
 
     try {
@@ -209,23 +214,23 @@ export class BackendEngine {
               }
             }
           }
-          return this.migrateState(parsed);
+          return this.migrateState(parsed, true);
         }
       }
     } catch (e) {
       console.warn("Could not load backend state from disk, initializing new state:", e);
     }
 
-    return {
+    return this.migrateState({
       version: 1,
       prizes: JSON.parse(JSON.stringify(BASE_PRIZES)),
       segments: [...WHEEL_6_SEGMENTS],
       spins: [],
       dailyTwsClaims: {},
-    };
+    }, true);
   }
 
-  private migrateState(source: Partial<BackendState>): BackendState {
+  private migrateState(source: Partial<BackendState>, seedConfirmed = true): BackendState {
     const oldPrizes = Array.isArray(source.prizes) ? source.prizes : [];
     const prizes = BASE_PRIZES.map((base) => {
       const old = oldPrizes.find((prize) => prize.id === base.id);
@@ -237,11 +242,35 @@ export class BackendEngine {
         stock: DAILY_STOCK_LIMITS[base.id] ?? base.stock,
       };
     });
+    const spins = Array.isArray(source.spins) ? [...source.spins] : [];
+    if (seedConfirmed) {
+      // These two official booth results were confirmed by the operator and are
+      // seeded idempotently so the shared ledger starts with the known history.
+      const confirmed = [
+        { id: "spin-2026-10-29-1912-cable", prizeId: "cable", code: "HW-000001", at: "2026-10-29T12:12:00.000Z", dateWib: "2026-10-29" },
+        { id: "spin-2026-10-30-1631-voucher", prizeId: "discount", code: "HW-000002", at: "2026-10-30T09:31:00.000Z", dateWib: "2026-10-30" },
+      ];
+      for (const entry of confirmed) {
+        const prize = BASE_PRIZES.find((item) => item.id === entry.prizeId)!;
+        const matchingIndex = spins.findIndex((spin) => spin.id === entry.id ||
+          (spin.prizeId === entry.prizeId && spin.dateWib === entry.dateWib &&
+            Math.floor(new Date(spin.at).getTime() / 60_000) === Math.floor(new Date(entry.at).getTime() / 60_000)));
+        if (matchingIndex >= 0) {
+          spins[matchingIndex] = { ...spins[matchingIndex], ...entry, prizeName: prize.name, sku: prize.sku,
+            image: prize.image, icon: prize.icon, events: [{ at: entry.at, action: "Putaran resmi dikonfirmasi operator." }] };
+        } else {
+          spins.push({ ...entry, sessionId: "confirmed-booth-history", prizeName: prize.name, sku: prize.sku,
+            image: prize.image, icon: prize.icon, status: "Won", segment: WHEEL_6_SEGMENTS.indexOf(entry.prizeId),
+            segments: [...WHEEL_6_SEGMENTS], rotation: 0,
+            events: [{ at: entry.at, action: "Putaran resmi dikonfirmasi operator." }] });
+        }
+      }
+    }
     return {
       version: 1,
       prizes,
       segments: [...WHEEL_6_SEGMENTS],
-      spins: Array.isArray(source.spins) ? source.spins : [],
+      spins,
       dailyTwsClaims: source.dailyTwsClaims || {},
     };
   }
@@ -379,6 +408,7 @@ export class BackendEngine {
       inventoryPolicy: INVENTORY_POLICY,
       serverTime: now.toISOString(),
       serverTimeWib: getWibTimeString(now),
+      localTimeWib: getWibTimeString(now),
       operationalDate: dateWib,
       operationalDateDisplay: getWibDateDisplay(now),
       quotaTwsDaily: DAILY_STOCK_LIMITS.tws,
@@ -394,6 +424,9 @@ export class BackendEngine {
       inventory,
       totalIssuedToday: inventory.reduce((sum, row) => sum + row.issued, 0),
       totalSpins: this.state.spins.length,
+      history: [...this.state.spins]
+        .filter((spin) => spin.dateWib >= "2026-10-29")
+        .sort((a, b) => b.at.localeCompare(a.at)),
       prizes: this.state.prizes,
       segments: this.state.segments,
       isSimulatedTime: this.isSimulated(),
@@ -416,6 +449,7 @@ export class BackendEngine {
     twsStatus: string;
     actualProbabilities: Record<string, number>;
     inventory: ReturnType<typeof getDailyInventory>;
+    history: BackendSpin[];
   }> {
     return this.mutex.runExclusive(async () => {
       // 1. Check idempotency: if clientRequestId already processed, return previous spin
@@ -431,6 +465,7 @@ export class BackendEngine {
           twsStatus: admin.twsStatus,
           actualProbabilities: admin.actualProbabilities,
           inventory: admin.inventory,
+          history: admin.history,
         };
       }
 
@@ -529,6 +564,7 @@ export class BackendEngine {
         segments: [...this.state.segments],
         rotation,
         dateWib,
+        events: [{ at: atIso, action: "Hadiah dimenangkan." }],
       };
 
       // Persist the ledger before publishing the idempotency result. Roll back
@@ -552,6 +588,7 @@ export class BackendEngine {
         twsStatus: admin.twsStatus,
         actualProbabilities: admin.actualProbabilities,
         inventory: admin.inventory,
+        history: admin.history,
       };
     });
   }
