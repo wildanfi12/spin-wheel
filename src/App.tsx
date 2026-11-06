@@ -6,12 +6,14 @@ import {
   History,
   X,
   Download,
+  FileText,
   Zap,
   Shield,
   FlaskConical,
 } from "lucide-react";
 import { AdminDashboard } from "./AdminDashboard";
 import { fetchAdminStatus, requestSpin, requestTestSpin } from "./api";
+import { exportHistoryCsv, exportHistoryPdf } from "./export";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Wheel, PrizeIcon } from "./Wheel";
@@ -332,35 +334,6 @@ export default function App() {
     } catch (e) {
       setError(String(e));
     }
-  }
-
-  function csv() {
-    if (!state) return;
-    const cell = (s: string) =>
-      '"' + (/^[=+@-]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"';
-    const rows = [
-      ["Spin ID", "Hadiah", "SKU", "Waktu Asia/Jakarta", "Status"],
-      ...[...historySpins]
-        .reverse()
-        .map((r) => [
-          r.code,
-          r.prizeName,
-          r.sku || state.prizes.find((p) => p.id === r.prizeId)?.sku || "-",
-          `${formatSpinDateTimeWib(r)} WIB`,
-          r.status,
-        ]),
-    ];
-    const url = URL.createObjectURL(
-      new Blob(
-        ["\uFEFF" + rows.map((r) => r.map(cell).join(",")).join("\r\n")],
-        { type: "text/csv;charset=utf-8" },
-      ),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `howell-history-${historyDate === "all" ? "semua-hari" : historyDate}.csv`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   const busy = !["IDLE", "CHARGING", "READY"].includes(phase);
@@ -696,9 +669,14 @@ export default function App() {
             <small>Last Spin · WIB</small>
           </div>
         </div>
-        <button className="export" onClick={csv} disabled={!spins.length}>
-          <Download size={16} /> EXPORT CSV
-        </button>
+        <div className="history-export-actions">
+          <button className="export" onClick={() => state && exportHistoryCsv(historySpins, state, `howell-history-${historyDate === "all" ? "semua-hari" : historyDate}.csv`)} disabled={!spins.length}>
+            <Download size={16} /> EXPORT CSV
+          </button>
+          <button className="export" onClick={() => exportHistoryPdf(historySpins)} disabled={!spins.length}>
+            <FileText size={16} /> EXPORT PDF
+          </button>
+        </div>
         <label className="history-date-filter">
           <span>Tampilkan riwayat tanggal</span>
           <select

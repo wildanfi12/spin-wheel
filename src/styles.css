@@ -599,6 +599,21 @@ dialog::backdrop {
   border-radius: 8px;
   font-size: 10px;
 }
+
+.history-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.history-export-actions .export {
+  margin: 0;
+}
+
+.admin-history-export {
+  margin-top: 12px;
+}
 .history-date-filter {
   display: grid;
   gap: 8px;

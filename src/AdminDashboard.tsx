@@ -8,8 +8,11 @@ import {
   RefreshCw,
   Shield,
   X,
+  Download,
+  FileText,
 } from "lucide-react";
 import { fetchAdminStatus, type AdminStatusResponse } from "./api";
+import { exportHistoryCsv, exportHistoryPdf } from "./export";
 import {
   formatSpinDateTimeWib,
   formatWibDateLong,
@@ -318,6 +321,25 @@ export function AdminDashboard({
                   ))}
                 </select>
               </label>
+              <div className="history-export-actions admin-history-export">
+                <button
+                  className="export"
+                  onClick={() => data && exportHistoryCsv(filteredHistory, {
+                    version: 1,
+                    prizes: data.inventory.map((item) => ({ ...item, description: "", stock: item.limit, weight: 1, image: "", icon: "" })),
+                    segments: data.inventory.map((item) => item.id),
+                    spins: filteredHistory,
+                    session: { id: "admin-export" },
+                    settings: { headline: "", subtitle: "", terms: "", expiry: "", logo: "", volume: 0, kiosk: false },
+                  }, `howell-history-admin-${historyDate === "all" ? "semua-hari" : historyDate}.csv`)}
+                  disabled={!filteredHistory.length}
+                >
+                  <Download size={16} /> EXPORT CSV
+                </button>
+                <button className="export" onClick={() => exportHistoryPdf(filteredHistory, `HOWELL SPIN & WIN · Admin · ${historyDate === "all" ? "Semua Hari" : formatWibDateLong(historyDate)}`)} disabled={!filteredHistory.length}>
+                  <FileText size={16} /> EXPORT PDF
+                </button>
+              </div>
               <p className="inventory-footnote">
                 Riwayat bersifat hanya-baca. Tidak ada aksi untuk menghapus catatan.
               </p>
